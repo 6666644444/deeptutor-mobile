@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useSyncExternalStore } from "react";
 import { AppState } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import { fetch as expoFetch } from "expo/fetch";
@@ -11,9 +11,9 @@ const manager = new SessionManager({
   remove: key => SecureStore.deleteItemAsync(key, options),
 }, expoFetch as typeof fetch);
 export const savedCredentials = () => manager.savedCredentials();
+const getSnapshot = () => manager.snapshot;
 const useValue = () => {
-  const [state, setState] = useState(manager.snapshot);
-  useEffect(() => manager.subscribe(() => setState(manager.snapshot)), []);
+  const state = useSyncExternalStore(manager.subscribe, getSnapshot, getSnapshot);
   return { ...state, user: state.api?.user || null,
     restore: () => state.config ? manager.connect(state.config, false) : manager.start(),
     login: (username: string, password: string) => manager.login(username, password),

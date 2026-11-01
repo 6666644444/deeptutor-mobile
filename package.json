@@ -35,12 +35,13 @@
   "scripts": {
     "start": "expo start --lan --port 8086",
     "android": "python3 scripts/build-android.py",
-    "ios": "expo run:ios --port 8086",
+    "ios": "python3 scripts/run-ios.py",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",
-    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "test": "node --experimental-strip-types --test tests/*.test.ts tests/*.test.mjs",
     "check:source": "node scripts/source-check.mjs",
+    "check:history": "node scripts/source-check.mjs --history",
     "export:source": "node scripts/export-source.mjs",
     "mock": "node scripts/mock-service.mjs"
   },

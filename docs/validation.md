@@ -4,11 +4,11 @@
 
 ## 自动验证
 
-- `npm test`：14/14 通过。覆盖 URL/来源拒绝、服务和账号键隔离、HTTP Cookie/跳转策略、上传/下载地址与 WebSocket 配置、并发续期、写请求不重放、关闭时取消响应体/流连接、免登录与公网限制、多服务恢复、断网保留凭据、令牌失效自动恢复、切换竞争、退出后续期不能重建凭据、不兼容认证状态、内嵌 bootstrap 身份与脚本转义、流式文字去重。
+- `npm test`：16/16 通过。覆盖 URL/来源拒绝、服务和账号键隔离、HTTP Cookie/跳转策略、上传/下载地址与 WebSocket 配置、并发续期、写请求不重放、关闭时取消响应体/流连接、免登录与公网限制、多服务恢复、断网保留凭据、令牌失效自动恢复、切换竞争、退出后续期不能重建凭据、不兼容认证状态、内嵌 bootstrap 身份与脚本转义、流式文字去重，以及隐私扫描的联系方式/路径/令牌识别与合法依赖归属保留。
 - `npm run typecheck`、测试代码 typecheck、`npm run lint`：通过。
 - Expo Doctor：21/21 通过。
-- Android 原生 Debug 构建：通过，包 `org.deeptutormobile.client`，arm64，目标 API 36。包含底层 WebSocket Cookie/redirect 策略。
-- 源码隐私扫描：通过。公开清单仅文本源码/配置/文档/虚拟数据；无原始 Git 历史、私有部署默认值、账号资料或签名材料。
+- Android 原生 Debug 构建：通过，包 `org.deeptutormobile.client`，arm64，目标 API 36。包含底层 WebSocket Cookie/redirect 策略。新脚本已用 JDK 21 实测完整构建、指定设备安装与自动启动。
+- 源码及完整可达 Git 历史隐私扫描：通过。公开清单仅文本源码/配置/文档/虚拟数据；提交身份使用项目级占位邮箱。扫描的私有禁用词通过环境变量提供，不嵌入公开源文件。没有私有部署默认值、账号资料或签名材料。
 - 依赖许可证：847 个 lockfile 条目均有许可证元数据，已收集安装包中的许可文本；不是完整二进制许可审计。
 - npm 安全审计：29 个受影响依赖条目，**未通过无漏洞门槛**。详情见 security-review.md。
 
@@ -43,8 +43,21 @@
 
 这不等于真实部署上传、模型推理或完整学习闭环通过。真实模型回复、OCR 准确率、题目校对入库、各可选模块和复杂互动需用专门测试部署继续验收。
 
-## iOS 与未覆盖部分
+## 双端启动修复与 iOS 实测
 
-iOS 已生成 Expo 原生工程，配置 ATS / 本地网络权限、SecureStore，以及 SocketRocket Cookie 隔离插件。CocoaPods 安装完成。Xcode 27.0 的 arm64 iOS Simulator Debug 不签名构建已成功，Cookie 隔离源文件已编译并链接；未启动或抢占已有 iOS 模拟器，未进行 iOS 交互、真机、签名或 TestFlight。
+最初的 iOS unsigned 编译产物只能证明编译，实际启动缺少 Metro 地址，保存连接会因 Keychain 授权失败。已新增 scripts/run-ios.py，使用 Xcode 正常 simulator ad-hoc 签名与模拟器专用 entitlement，并在启动时明确设置 Metro 地址；没有使用个人证书或申请 provisioning。禁止把关闭签名或手签设备 entitlement 当作修复。
 
-尚未验证：Android 真机相机/相册和 OCR、大文件/超长回复、长期后台进程、真实服务器全量功能、iOS 交互/真机、不同 VPN / 代理网关、PocketBase、多服务数据迁移。外部 App 直接分享接收不在实现范围。客户端暂不提供公共目录导出或离线资料库。
+在新建独立 iOS 26.5 模拟器、独立 DerivedData 中，完整执行脚本的 prebuild、Pods、Xcode 27 Debug 构建、安装与启动，结果通过。未追加手工签名或启动命令。虚拟服务通过脚本的 --host 与 --base-port 显式监听电脑私有网地址，不依赖临时转发器。
+
+| iOS 路径 | 结果 |
+| --- | --- |
+| 首次连接认证服务并保存连接 | 通过，无 Keychain 错误 |
+| demo 登录、软件键盘避让 | 通过 |
+| 资料列表、WKWebView 当前服务和账号身份 | 通过 |
+| WebView 后原生 WebSocket 模拟流式回复 | 通过 |
+| --launch-only 冷启动并恢复认证身份 | 通过，无需重新输入密码 |
+| 切换到免登录服务，再冷启动恢复 | 通过 |
+
+Android 同时用新的 build-android.py 完成构建→安装→指定端口 reverse→启动，并用 --launch-only 复测关键路径。连接状态改用 useSyncExternalStore 订阅；连接/登录异步回调在组件卸载后不再更新局部状态。此前偶发的未挂载组件 setState 警告未稳定复现，不能宣称已通过调用栈确认其唯一根因；最终冷启动验证继续检查控制台。
+
+尚未验证：Android 真机相机/相册和 OCR、大文件/超长回复、长期后台进程、真实服务器全量功能、iOS 真机及本轮未覆盖的系统文件上传/相机/相册/失效令牌续期、不同 VPN / 代理网关、PocketBase、多服务数据迁移。Windows 构建主机与 x86_64 Android 尚未实测。外部 App 直接分享接收不在实现范围。没有发行安装包或上传 TestFlight；客户端暂不提供公共目录导出或离线资料库。

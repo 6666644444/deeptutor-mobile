@@ -9,6 +9,7 @@ export function publicFiles() {
   const found = files.filter(f => { try { return lstatSync(path.join(root, f)).isFile(); } catch { return false; } });
   const visit = dir => { for (const entry of readdirSync(path.join(root, dir), { withFileTypes: true })) {
     const relative = `${dir}/${entry.name}`;
+    if (entry.isDirectory() && entry.name === '__pycache__') continue;
     if (entry.isSymbolicLink()) throw Error(`Symlink forbidden: ${relative}`);
     if (entry.isDirectory()) visit(relative); else found.push(relative);
   } };

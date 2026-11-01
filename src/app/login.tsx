@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, Text, View } from "react-native";
 import { Redirect } from "expo-router";
 import { useAuth } from "../lib/auth";
@@ -9,6 +9,8 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const mounted = useRef(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   if (user) return <Redirect href="/(tabs)" />;
   async function submit() {
     if (busy) return;
@@ -16,11 +18,11 @@ export default function Login() {
     setError("");
     try {
       await login(username, password);
-      setPassword("");
+      if (mounted.current) setPassword("");
     } catch (e) {
-      setError((e as Error).message);
+      if (mounted.current) setError((e as Error).message);
     } finally {
-      setBusy(false);
+      if (mounted.current) setBusy(false);
     }
   }
   return (

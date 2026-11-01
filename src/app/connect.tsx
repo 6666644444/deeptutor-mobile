@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Text, View, Alert } from "react-native";
 import { useAuth } from "../lib/auth";
 import { connection, type Connection } from "../lib/connection";
@@ -9,11 +9,13 @@ export default function Connect() {
   const [url, setUrl] = useState(auth.config?.origin || process.env.EXPO_PUBLIC_DEFAULT_SERVER || "");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const mounted = useRef(false);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
   async function connect(input = url, source = kind) {
     setError(""); setBusy(true);
     try { await auth.connect(connection(input, source)); }
-    catch (e) { setError((e as Error).message); }
-    finally { setBusy(false); }
+    catch (e) { if (mounted.current) setError((e as Error).message); }
+    finally { if (mounted.current) setBusy(false); }
   }
   return <Page>
     <Heading title="连接我的 DeepTutor" sub="学习服务由你自己的电脑或服务器提供" />

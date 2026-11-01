@@ -10,7 +10,7 @@
 
 ## 快速运行
 
-需要 Node.js 24（验证使用 24.16.0）、npm、JDK 17、Android SDK。使用自有隔离模拟器或测试设备；命令不会自动选中已有设备。
+需要 Node.js 24（验证使用 24.16.0）、npm、Python 3。Android 另需完整 JDK 17 或 21、Android SDK；iOS 另需 macOS、Xcode、已安装的 iOS Simulator runtime 和 CocoaPods。使用独立测试目标，脚本必须通过 `--device` 明确指定设备，不会自动选择或操作其他设备。
 
 ```sh
 git clone https://github.com/TinyPandaGame/deeptutor-mobile.git
@@ -22,23 +22,30 @@ npm test
 npm run lint
 npx expo-doctor
 node scripts/source-check.mjs
+node scripts/source-check.mjs --history
 ```
 
-首次生成并构建独立安卓调试应用（默认包名 `org.deeptutormobile.client`，不会覆盖其他包名）：
+先在本项目的独立终端保持 Metro 运行（默认 8086）：
 
 ```sh
-# 按本机安装位置设置 JAVA_HOME 和 ANDROID_HOME
-python3 scripts/build-android.py
-# 在 Android Studio Device Manager 新建一个独立 API 36.1 arm64 模拟器
-adb devices
-adb -s <测试设备序列号> install -r android/app/build/outputs/apk/debug/app-debug.apk
-adb -s <测试设备序列号> reverse tcp:8086 tcp:8086
-# 在另一个终端保持运行；不使用已有项目的端口
-npx expo start --lan --port 8086
-adb -s <测试设备序列号> shell am start -n org.deeptutormobile.client/.MainActivity
+npm start
 ```
 
-调试包依赖 Metro，仅用于本机验证。生产独立包需按 [构建说明](docs/build.md) 生成与签名。普通源码变更热更新；修改 `plugins/` 或原生依赖后必须重新构建。此项目包含 WebSocket 隔离插件，**不能使用 Expo Go 代替自有构建来验收隔离**。
+Android：在 Android Studio Device Manager 新建并启动独立模拟器，或连接自己的测试手机；按安装位置设置 `JAVA_HOME`。SDK 位于系统常见目录时会自动识别，也可用 `ANDROID_HOME` 指定。
+
+```sh
+npm run android -- --list-devices
+npm run android -- --device <adb设备序列号>
+```
+
+iOS：在 Xcode 创建独立模拟器后，用完整 UDID 选择它。脚本自动完成 prebuild、Pods、模拟器 ad-hoc 签名构建、安装和 Metro 启动地址设置，不需要 Apple 开发者账号或个人签名证书。
+
+```sh
+npm run ios -- --list-devices
+npm run ios -- --device <模拟器UDID>
+```
+
+两端调试包依赖 Metro；第二次只需重装/启动已有包时，在对应命令追加 `--launch-only`。构建脚本不启动或占用已有后端，不发布安装包。iOS 不要关闭代码签名或手工添加设备 entitlement，否则模拟器 Keychain 会失败。完整参数、工具链和正式构建说明见 [构建说明](docs/build.md)。修改 `plugins/` 或原生依赖后必须重建。此项目包含 WebSocket 隔离插件，**不能使用 Expo Go 代替自有构建来验收隔离**。
 
 仅用虚拟服务试用，不需要 DeepTutor 或模型账号：
 
@@ -46,7 +53,16 @@ adb -s <测试设备序列号> shell am start -n org.deeptutormobile.client/.Mai
 node scripts/mock-service.mjs
 ```
 
-Android 模拟器内填写 `http://10.0.2.2:8786`，账号 `demo` / 密码 `demo-pass`；第二个服务为端口 `8788`，免登录服务为 `8787`。可用第二个虚拟账号 `other`，密码相同。服务只绑定开发机回环地址，数据仅在内存；这是接口测试替身，不是模型。`fixtures/fixture.txt` 可用于文件上传，不含教材或个人资料。
+Android 模拟器内填写 `http://10.0.2.2:8786`，账号 `demo` / 密码 `demo-pass`；第二个服务为端口 `8788`，免登录服务为 `8787`。可用第二个虚拟账号 `other`，密码相同。默认只监听回环地址。
+
+iOS 模拟器或真实手机的业务服务不能填手机自己的回环地址。只在可信局域网中，可以显式把虚拟服务绑定到开发机实际拥有的私有 IP：
+
+```sh
+# 把示例地址替换成电脑当前局域网 IP；不会自动使用所有网卡
+npm run mock -- --host 192.168.1.20 --base-port 8792
+```
+
+两端均填写 `http://192.168.1.20:8792`，免登录为 8793、第二个认证服务为 8794。仅使用虚拟账号与资料；不向公网转发这些测试端口。数据只在内存，这是接口测试替身，不是模型。`fixtures/fixture.txt` 可用于上传。测试结束按 Ctrl+C 关闭虚拟服务。
 
 ## 连接与安全
 

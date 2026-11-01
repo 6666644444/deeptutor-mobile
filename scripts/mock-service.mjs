@@ -1,8 +1,17 @@
 // Local contract fixture only. No DeepTutor, model, personal data or external traffic.
 import http from 'node:http';
 import { createHash, randomUUID } from 'node:crypto';
+import { networkInterfaces } from 'node:os';
+import { parseArgs } from 'node:util';
+import { isPrivateHost } from '../src/lib/connection.ts';
+const { values } = parseArgs({ options: { host: { type: 'string', default: '127.0.0.1' }, 'base-port': { type: 'string', default: '8786' } } });
+const host = values.host, basePort = Number(values['base-port']);
+const localAddresses = Object.values(networkInterfaces()).flat().filter(Boolean).map(item => item.address);
+if (host !== '127.0.0.1' && (!isPrivateHost(host) || !localAddresses.includes(host)))
+  throw Error('--host must be loopback or an explicit private address assigned to this computer.');
+if (!Number.isInteger(basePort) || basePort < 1024 || basePort > 65533) throw Error('--base-port must be 1024..65533.');
 const servers = [];
-for (const [port, label, enabled] of [[8786, '服务甲', true], [8787, '单用户演示', false], [8788, '服务乙', true]]) {
+for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort + 1, '单用户演示', false], [basePort + 2, '服务乙', true]]) {
   const tokens = new Map(), materials = new Map(), sessions = new Map();
   const userFor = req => {
     if (!enabled) return 'local-admin';
@@ -21,7 +30,7 @@ for (const [port, label, enabled] of [[8786, '服务甲', true], [8787, '单用�
       const token = randomUUID(); tokens.set(token, data.username);
       return json({ ok: true, user_id: data.username, username: data.username, role: 'admin' }, 200, { 'Set-Cookie': `dt_token=${token}; Path=/; HttpOnly; SameSite=Lax` });
     }
-    // Test-only reset: localhost fixture, no real deployment endpoint.
+    // Test-only reset on this explicitly selected local fixture.
     if (path === '/__fixture/expire') { tokens.clear(); return json({ expired: true }); }
     const user = userFor(req);
     if (!user) return json({ detail: 'Not authenticated' }, 401);
@@ -68,6 +77,7 @@ for (const [port, label, enabled] of [[8786, '服务甲', true], [8787, '单用�
       }
     });
   });
-  server.listen(port, '127.0.0.1', () => console.log(`Fixture ${label}: 127.0.0.1:${port} (Android emulator: 10.0.2.2:${port})`)); servers.push(server);
+  server.listen(port, host, () => console.log(`Fixture ${label}: http://${host}:${port}${host === '127.0.0.1' ? ` (Android emulator: http://10.0.2.2:${port})` : ' (trusted LAN only; demo data, no real credentials)'}`)); servers.push(server);
 }
-process.on('SIGINT', () => { for (const server of servers) server.close(); process.exit(); });
+const stop = () => { for (const server of servers) server.close(); process.exit(); };
+process.on('SIGINT', stop); process.on('SIGTERM', stop);
