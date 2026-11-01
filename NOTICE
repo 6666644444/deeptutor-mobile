@@ -1,0 +1,18 @@
+DeepTutor Mobile
+Copyright 2026 DeepTutor Mobile contributors
+
+An independent third-party mobile client for HKUDS/DeepTutor.
+Not an official HKUDS release and not endorsed by the upstream maintainers.
+Upstream: https://github.com/HKUDS/DeepTutor
+First supported API contract: v1.7.1, commit f7aed0744c36c5afef16a4261c31ebee1208cac2.
+Upstream DeepTutor is licensed under Apache License 2.0.
+This repository does not bundle its Python server or web frontend.
+The embedded modules load from the user's own DeepTutor deployment.
+
+The client UI was adapted from an Expo mobile prototype,
+then modified to remove deployment-specific configuration and add per-service
+session isolation. No private repository history or learning data is included.
+
+Dependency attribution is recorded in THIRD_PARTY_NOTICES.md and
+ docs/dependency-licenses.json. Keep applicable third-party notices when
+redistributing dependencies or built applications.

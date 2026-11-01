@@ -1,0 +1,22 @@
+# Privacy and dependency review
+
+Review date: 2026-11-01. Public source defaults to no server. Credentials are only entered in the installed app and saved using SecureStore. No telemetry SDK or analytics code was added. Expo developer tooling may contact Expo/npm during development; EXPO_NO_TELEMETRY=1 is used in local build scripts. Learning requests go to the selected service; external references open in a separate browser after confirmation.
+
+Source extraction used an explicit file allowlist. No private Git history, account files, textbook, photo, mistake record, model key, OAuth material or signing certificate was copied. `source-check.mjs` checks the deliverable text tree, including docs and examples. Artifacts, generated platform projects, env files and node_modules are excluded. It cannot detect every possible secret, so the staged file manifest must also be reviewed before publishing.
+
+## Dependency audit result
+
+`expo-doctor`: 21/21 compatibility checks passed. `npm audit` completed against the npm registry: **29 affected dependency entries — 5 high, 22 moderate, 2 low, 0 critical**. These counts include parent packages reported because of vulnerable transitive dependencies, not 29 separate vulnerabilities.
+
+Direct advisory roots:
+
+| Package | Concern | Review result |
+| --- | --- | --- |
+| decode-uri-component 0.2.2 (query-string / expo-router) | Malformed URL decoding DoS, [GHSA-qr28-fpjm-wq7f](https://github.com/advisories/GHSA-qr28-fpjm-wq7f) | Runtime-relevant router dependency. 0.5.1 is ESM while the current caller is CommonJS; do not force override without bundler/routing tests. |
+| zod 3.25.76 | Oversized constrained collection memory exhaustion, [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) | Used by development/build dependencies; the audit proposes a different major API. |
+| glob 13.0.6 / minimatch 3.x and 10.x | Cancellation / amplification DoS | Primarily CLI and lint traversal; fixes cross current dependency majors. |
+| deepmerge 4.3.1 | Prototype poisoning of merged objects | Expo configuration tooling; avoid untrusted build config. |
+
+`npm audit fix --force` proposes Expo 51 or Router 58 for parts of this SDK 57 tree; that would invalidate the current platform integration. It was not applied. The source remains reviewable, but **this audit is not clean and signed/public binary release is not approved by these checks**. Address the router dependency and remaining applicable advisories through a supported Expo maintenance release or a separately tested migration, then repeat dependency and platform checks. Do not present this source preview as a security-certified client.
+
+No arbitrary certificate bypass exists. Public HTTP is rejected. No-auth services are limited to private address forms; this check does not create a firewall, VPN or DNS trust boundary. The administrator must actually protect the service network. Same-origin path validation, no-redirect HTTP and native Cookie policy protect credential routing; they cannot make an untrusted server safe.

@@ -1,0 +1,2 @@
+fixture-document
+Synthetic public sample only.
