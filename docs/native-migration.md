@@ -1,6 +1,6 @@
 # Native preview migration
 
-The native client was introduced in **0.2.0-preview.1**. **0.3.0-preview.1** adds signed GitHub OTA infrastructure to the existing release checker. Service selection, anonymous/account modes, origin restrictions, cancellation, and service/account persistence remain authoritative.
+The native client was introduced in **0.2.0-preview.1**. **0.3.0-preview.1** added signed GitHub OTA infrastructure. **0.3.0-preview.2** adds chat model selection, account-private API-key configuration and administrator model settings. Service selection, anonymous/account modes, origin restrictions, cancellation, and service/account persistence remain authoritative.
 
 ## Architecture decisions
 
@@ -16,11 +16,11 @@ The native client was introduced in **0.2.0-preview.1**. **0.3.0-preview.1** add
 | Workspace | Previously no workspace selection | Extend the existing session manager; scope includes service, account and workspace, and switches retire old requests and temporary files. |
 | Updates | The release checker only linked to downloads; EAS adds hosted infrastructure, while a custom remote server adds deployment maintenance | Use SDK-matched expo-updates with GitHub Release assets and a local protocol adapter. Maintain both native adapters, an external signing key and runtime-specific acceptance. Existing installs need a new native base. |
 
-No server code, deployment credentials, private signing key or application data is part of this migration. New native modules are covered by the repository Apache-2.0 license; third-party renderer licenses remain separate.
+The optional `server/mobile_models` extension adds account-private API-key models for the pinned DeepTutor version. No deployment credentials, private signing key or application data are included. New native modules are covered by the repository Apache-2.0 license; third-party renderer licenses remain separate.
 
 ## Preview boundaries
 
-This is not desktop feature parity. External partner channels/groups, some writing anchor discussions and review cards, manual mastery-map editing, knowledge sync-source management, and administrator model/tool management remain incomplete. EPUB uses extracted text/images. Calendar reminder fields are not device notifications. No public OTA manifest or installable binary is published for this source preview. Feature availability depends on the selected server's configured models and services.
+This is not desktop feature parity. See [the route and settings audit](feature-coverage.md) for the current gaps, including external partner channels/groups, some writing reviews, manual mastery-map editing, knowledge sync sources, skills/MCP/tool management and parts of model settings. Chat model selection and API-key management now have native interfaces; ordinary-user BYOK requires the optional server extension. EPUB uses extracted text/images. Calendar reminder fields are not device notifications. No public OTA manifest or installable binary is published for this source preview. Feature availability depends on the selected server's configured models and services.
 
 The common API target remains DeepTutor 1.7.1. Tests of another installation do not establish this repository's runtime readiness. Current validation is recorded separately in `validation.md`.
 

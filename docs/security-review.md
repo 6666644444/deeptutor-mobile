@@ -1,6 +1,6 @@
 # Privacy and dependency review
 
-Review date: 2026-11-02. Public source defaults to no server. Credentials are only entered in the installed app and saved using SecureStore. No telemetry SDK or analytics code was added. Expo developer tooling may contact Expo/npm during development; EXPO_NO_TELEMETRY=1 is used in local build scripts. Learning requests, downloads and native media go to the selected service. Cross-origin media is rejected. Rendered inline math/diagrams have no network or credential bridge.
+Review date: 2026-11-02. Public source defaults to no server. Remembered login credentials use SecureStore. Model API keys are entered in memory and submitted to the selected DeepTutor server, not persisted in the phone's settings. No telemetry SDK or analytics code was added. Expo developer tooling may contact Expo/npm during development; EXPO_NO_TELEMETRY=1 is used in local build scripts. Learning requests, downloads and native media go to the selected service. Cross-origin media is rejected. Rendered inline math/diagrams have no network or credential bridge.
 
 Source extraction used an explicit file allowlist. No private Git history, account files, textbook, photo, mistake record, model key, OAuth material or private signing material was copied. `source-check.mjs` checks the deliverable text tree, including docs and examples. Artifacts, generated platform projects, env files and node_modules are excluded. It cannot detect every possible secret, so the staged file manifest must also be reviewed before publishing.
 
@@ -9,6 +9,12 @@ Publication checks now include `source-check.mjs --history`: all reachable commi
 ## Update boundary
 
 Updates use this client's GitHub Releases without learning credentials. The repository contains only the public verification certificate; the private signing key stays outside source and releases. The loopback adapter forwards signed manifest bytes, while Expo verifies the signature, resource hashes and runtime. Embedded-update and startup fallback protections remain enabled. Android verification used a local distribution fixture; public GitHub OTA and iOS OTA runtime are not yet accepted. See [updates.md](updates.md).
+
+## Optional personal model extension
+
+`server/mobile_models` is client-owned Apache-2.0 code for DeepTutor 1.7.1. It uses the authenticated account's secrets directory, returns an explicit redacted field allowlist and requires a new key when changing the provider or API address. Shared settings remain administrator-only. Server administrators can access stored keys; use a server you trust. Only synthetic credentials are included in tests.
+
+The API-address check rejects private addresses at validation time; it does not pin later DNS results or constrain all inference traffic. The extension currently accepts HTTP as well as HTTPS, so deployments should use HTTPS provider URLs and enforce outbound network restrictions. These checks do not make a deployment safe for untrusted, freely registered users. Real personal-key paid inference and iOS model-management interaction have not been accepted in this preview.
 
 ## Dependency audit result
 
@@ -26,4 +32,4 @@ Direct advisory roots:
 
 `npm audit fix --force` proposes Expo 51 or Router 58 for parts of this SDK 57 tree; that would invalidate the current platform integration. It was not applied. The source remains reviewable, but **this audit is not clean and signed/public binary release is not approved by these checks**. Address the router dependency and remaining applicable advisories through a supported Expo maintenance release or a separately tested migration, then repeat dependency and platform checks. Do not present this source preview as a security-certified client.
 
-No arbitrary certificate bypass exists. Public HTTP is rejected. No-auth services are limited to private address forms; this check does not create a firewall, VPN or DNS trust boundary. The administrator must actually protect the service network. Same-origin path validation, no-redirect HTTP and native Cookie policy protect credential routing; they cannot make an untrusted server safe.
+No arbitrary certificate bypass exists. The mobile client's learning-service connection rejects public HTTP. No-auth services are limited to private address forms; this check does not create a firewall, VPN or DNS trust boundary. The administrator must actually protect the service network. Same-origin path validation, no-redirect HTTP and native Cookie policy protect credential routing; they cannot make an untrusted server safe.

@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { useAuth } from "./auth";
 import { AppState } from "react-native";
+import { ApiError } from "./client";
 // Poll only visible, active jobs. Never re-submit mutations or keep a hidden
 // account/workspace screen reading in the background.
 export function useJobPolling(
@@ -30,6 +31,7 @@ export function useResource<T>(path: string | null) {
   const [stored, setStored] = useState<{ key: string; value: T } | null>(null);
   const data = stored?.key === key ? stored.value : null;
   const [error, setError] = useState("");
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const run = useRef(0);
   const reload = useCallback(async () => {
@@ -40,11 +42,12 @@ export function useResource<T>(path: string | null) {
     }
     setLoading(true);
     setError("");
+    setErrorStatus(null);
     try {
       const result = await api.request<T>(path);
       if (run.current === id) setStored({ key, value: result });
     } catch (e) {
-      if (run.current === id) setError((e as Error).message);
+      if (run.current === id) { setError((e as Error).message); setErrorStatus(e instanceof ApiError ? e.status : null); }
     } finally {
       if (run.current === id) setLoading(false);
     }
@@ -61,5 +64,5 @@ export function useResource<T>(path: string | null) {
       };
     }, [reload]),
   );
-  return { data, error, loading, reload };
+  return { data, error, errorStatus, loading, reload };
 }

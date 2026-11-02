@@ -60,6 +60,7 @@ export default function Me() {
         onPress={() => feature("workspaces")}
       />
       <Section title="服务连接" />
+      <Row title="模型与密钥" detail="切换默认模型、配置服务商和 API Key" icon="hardware-chip-outline" onPress={() => router.push('/models')} />
       <Row title={config?.kind === "computer" ? "我的电脑" : "我的服务器"} detail={config?.origin} icon="server-outline" onPress={editConnections} />
       <Button title="管理或更换服务" secondary onPress={editConnections} />
       <Section title="登录与隐私" />

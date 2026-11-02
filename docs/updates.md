@@ -1,6 +1,6 @@
 # 客户端更新
 
-**0.3.0-preview.1 仅发布源码，尚无公开 OTA 清单或安装包。** 下述自动更新需要包含 `LearningUpdates` 的新基础包；旧安装包不能通过 JS 更新补装原生模块。
+**0.3.0-preview.2 仅发布源码，尚无公开 OTA 清单或安装包。** 下述自动更新需要包含 `LearningUpdates` 的新基础包；旧安装包不能通过 JS 更新补装原生模块。
 
 客户端只读取 `TinyPandaGame/deeptutor-mobile` 的 GitHub Releases。DeepTutor 官方更新先经过我们的适配与测试，再形成客户端发行版本；不会直接消费官方仓库、主分支提交或草稿。
 

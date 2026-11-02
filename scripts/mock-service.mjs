@@ -4,7 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { networkInterfaces } from 'node:os';
 import { parseArgs } from 'node:util';
 import { isPrivateHost } from '../src/lib/connection.ts';
-const { values } = parseArgs({ options: { host: { type: 'string', default: '127.0.0.1' }, 'base-port': { type: 'string', default: '8786' } } });
+const { values } = parseArgs({ options: { host: { type: 'string', default: '127.0.0.1' }, 'base-port': { type: 'string', default: '8786' }, 'user-models': { type: 'boolean', default: false } } });
 const host = values.host, basePort = Number(values['base-port']);
 const localAddresses = Object.values(networkInterfaces()).flat().filter(Boolean).map(item => item.address);
 if (host !== '127.0.0.1' && (!isPrivateHost(host) || !localAddresses.includes(host)))
@@ -24,7 +24,8 @@ function fixturePdf() {
   return Buffer.from(pdf);
 }
 for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort + 1, '单用户演示', false], [basePort + 2, '服务乙', true]]) {
-  const tokens = new Map(), materials = new Map(), sessions = new Map();
+  const tokens = new Map(), materials = new Map(), sessions = new Map(), personal = new Map();
+  const role = values['user-models'] ? 'user' : 'admin';
   const userFor = req => {
     if (!enabled) return 'local-admin';
     const token = req.headers.authorization?.replace(/^Bearer /, '') || /dt_token=([^;]+)/.exec(req.headers.cookie || '')?.[1];
@@ -33,20 +34,49 @@ for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort +
   const server = http.createServer(async (req, res) => {
     const path = new URL(req.url, 'http://fixture').pathname;
     const json = (data, code = 200, headers = {}) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...headers }); res.end(JSON.stringify(data)); };
-    if (path === '/api/auth/status') { const user = userFor(req); return json({ enabled, authenticated: !!user, user_id: user || null, username: user || null, role: user ? 'admin' : null }); }
+    if (path === '/api/auth/status') { const user = userFor(req); return json({ enabled, authenticated: !!user, user_id: user || null, username: user || null, role: user ? role : null }); }
     const chunks = []; for await (const chunk of req) chunks.push(chunk);
     const body = Buffer.concat(chunks);
     if (path === '/api/auth/login') {
       const data = JSON.parse(body.toString() || '{}');
       if (!['demo', 'other'].includes(data.username) || data.password !== 'demo-pass') return json({ detail: 'Invalid fixture login' }, 401);
       const token = randomUUID(); tokens.set(token, data.username);
-      return json({ ok: true, user_id: data.username, username: data.username, role: 'admin' }, 200, { 'Set-Cookie': `dt_token=${token}; Path=/; HttpOnly; SameSite=Lax` });
+      return json({ ok: true, user_id: data.username, username: data.username, role }, 200, { 'Set-Cookie': `dt_token=${token}; Path=/; HttpOnly; SameSite=Lax` });
     }
     // Test-only reset on this explicitly selected local fixture.
     if (path === '/__fixture/expire') { tokens.clear(); return json({ expired: true }); }
     const user = userFor(req);
     if (!user) return json({ detail: 'Not authenticated' }, 401);
     const owner = `${user}:${req.headers['x-deeptutor-workspace'] || ''}`;
+    const modelState = personal.get(user) || { profiles: [], active: null };
+    const providers = [{ value: 'custom', label: 'Custom (OpenAI API)', base_url: 'https://api.example.com/v1', api_formats: ['auto', 'openai_chat'] }, { value: 'deepseek', label: 'DeepSeek', base_url: 'https://api.example.com/v1', api_formats: ['auto', 'openai_chat'] }];
+    const publicModels = () => ({ ...modelState, profiles: modelState.profiles.map(({ api_key, ...p }) => ({ ...p, has_key: !!api_key })), providers });
+    if (path === '/api/settings/llm-options' || path === '/api/mobile/models/options') {
+      const shared = { profile_id: 'fixture-shared', model_id: 'fixture-shared-model', model: 'fixture-shared-model', profile_name: '演示服务', provider: 'custom' };
+      const active = modelState.active || { profile_id: shared.profile_id, model_id: shared.model_id };
+      const options = [shared, ...modelState.profiles.flatMap(p => p.models.map(m => ({ profile_id: p.id, model_id: m.id, model: m.model, profile_name: p.name, provider: p.binding })))];
+      return json({ active, options: options.map(m => ({ ...m, is_active_default: m.profile_id === active.profile_id && m.model_id === active.model_id })) });
+    }
+    if (values['user-models'] && path.startsWith('/api/mobile/models')) {
+      const data = JSON.parse(body.toString() || '{}');
+      if (path === '/api/mobile/models' && req.method === 'GET') return json(publicModels());
+      if (path.endsWith('/discover') && req.method === 'POST') {
+        const key = data.api_key || modelState.profiles.find(p => p.id === data.id)?.api_key;
+        return json(key?.startsWith('fixture-key') ? { status: 'connected', models: [{ id: 'fixture-model-a' }, { id: 'fixture-model-b' }] } : { status: 'auth_error', models: [] });
+      }
+      if (path.endsWith('/profile') && req.method === 'POST') {
+        const old = modelState.profiles.find(p => p.id === data.id);
+        if (data.id && !old) return json({}, 404);
+        if (!data.models?.length) return json({}, 400);
+        const p = { ...data, id: old?.id || randomUUID(), api_key: data.api_key || old?.api_key, models: data.models.map(id => ({ id, model: id, name: id })) };
+        modelState.profiles = [...modelState.profiles.filter(row => row.id !== p.id), p];
+        modelState.active ||= { profile_id: p.id, model_id: p.models[0].id };
+        personal.set(user, modelState); return json(publicModels());
+      }
+      if (path.endsWith('/default') && req.method === 'POST') { modelState.active = data; personal.set(user, modelState); return json({ ok: true }); }
+      if (path.includes('/profile/') && req.method === 'DELETE') { modelState.profiles = modelState.profiles.filter(p => p.id !== path.split('/').at(-1)); modelState.active = null; personal.set(user, modelState); return json({ ok: true }); }
+      return json({}, 404);
+    }
     if (req.method !== 'GET' && !(req.method === 'POST' && path === '/api/reading/materials') && !(req.method === 'PUT' && path === '/api/reading/materials/fixture-pdf/position'))
       return json({ detail: 'This write is not implemented by the local fixture' }, 404);
     const document = { material_id: 'fixture-pdf', title: `${label} / ${user} · PDF演示`, filename: 'fixture.pdf', render_mode: 'pdf', has_raw_view: true, unit_count: 1, unit: 'page', revision: 1, status: 'ready' };
@@ -104,8 +134,8 @@ for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort +
         const data = Buffer.from(buffer.subarray(offset, offset + n)); if (mask) for (let i = 0; i < data.length; i++) data[i] ^= key[i % 4];
         buffer = buffer.subarray(offset + n); if (opcode === 8) { socket.end(Buffer.from([0x88, 0])); return; } if (opcode !== 1) continue;
         const value = JSON.parse(data.toString()); if (value.type !== 'start_turn') continue;
-        const id = randomUUID(), answer = `${label} / ${user}：已收到测试问题。这是流式协议演示，不是模型答案。`;
-        sessions.set(id, { id, owner: `${user}:${req.headers['x-deeptutor-workspace'] || ''}`, title: '虚拟测试对话', messages: [{ id: 'u', role: 'user', content: value.content }, { id: 'a', role: 'assistant', content: answer }] });
+        const id = randomUUID(), answer = `${label} / ${user}：已收到测试问题。这是流式协议演示，不是模型答案。${value.llm_selection ? `\n收到模型 ID：${value.llm_selection.model_id}` : ''}`;
+        sessions.set(id, { id, owner: `${user}:${req.headers['x-deeptutor-workspace'] || ''}`, title: '虚拟测试对话', preferences: { llm_selection: value.llm_selection }, messages: [{ id: 'u', role: 'user', content: value.content }, { id: 'a', role: 'assistant', content: answer }] });
         send({ type: 'content', content: answer.slice(0, 12), session_id: id, seq: 1 });
         setTimeout(() => { if (!socket.destroyed) {
           send({ type: 'content', content: answer.slice(12), session_id: id, seq: 2 });

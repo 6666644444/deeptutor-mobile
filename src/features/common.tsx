@@ -166,11 +166,13 @@ export function Editor({
   fields,
   onSave,
   onClose,
+  beforeFields,
 }: {
   title: string;
   fields: InputSpec[];
   onSave: (values: Record<string, string>) => Promise<void>;
   onClose: () => void;
+  beforeFields?: (values: Record<string, string>, update: (values: Record<string, string>) => void) => React.ReactNode;
 }) {
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
@@ -186,6 +188,7 @@ export function Editor({
           right={<Button title="取消" secondary onPress={onClose} />}
         />
         <View style={{ gap: 18 }}>
+          {beforeFields?.(values, patch => setValues(current => ({ ...current, ...patch })))}
           {fields.map((f) =>
             f.options ? (
               <View key={f.key}>

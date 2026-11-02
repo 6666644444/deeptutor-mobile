@@ -1,5 +1,5 @@
 import { ownTemporaryFile } from "../../lib/temporary-files";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import { File } from "expo-file-system";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
@@ -43,6 +43,8 @@ import {
   cancelledTurn,
 } from "../../lib/conversation";
 import { Chips, Editor, Prose, SmallAction } from "../../features/common";
+import { ModelPicker } from "../../features/model-picker";
+import { loadModelOptions, resolveTurnModel, selection, selectedModel, type ModelSelection, type ModelOptions } from "../../lib/models";
 type Message = {
   id: string;
   role: string;
@@ -93,6 +95,14 @@ export default function Chat() {
       }) as ChatOptions,
   );
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [modelOpen, setModelOpen] = useState(false);
+  const [modelChoice, setModelChoice] = useState<ModelSelection | null>(() => selection(initialDraft?.context.llm_selection));
+  const [models, setModels] = useState<ModelOptions | null>(null);
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    if (api) void loadModelOptions(api).then(value => { if (active) setModels(value); }).catch(() => { if (active) setModels(null); });
+    return () => { active = false; };
+  }, [api]));
   const [waiting, setWaiting] = useState(false);
   const [replyBusy, setReplyBusy] = useState(false);
   const replyPending = useRef(false);
@@ -229,6 +239,9 @@ export default function Chat() {
     try {
       // Validate/renew before opening WS; failed connections never silently re-submit a turn.
       await api.ensureSession();
+      const currentModels = resumeId ? null : await loadModelOptions(api);
+      const turnModel = currentModels ? resolveTurnModel(currentModels, modelChoice) : undefined;
+      if (currentModels && alive.current) setModels(currentModels);
       const filePayload = attached
         ? {
             type: attached.name.toLowerCase().endsWith(".pdf") ? "pdf" : "file",
@@ -331,6 +344,7 @@ export default function Chat() {
             ...context,
             ...options,
             ...extra,
+            llm_selection: turnModel,
             ...(api.workspaceId ? { workspace_id: api.workspaceId } : {}),
             client_submission_id: submission,
             ...(sid.current ? { session_id: sid.current } : {}),
@@ -517,6 +531,7 @@ export default function Chat() {
             setMessages(r.messages || []);
             setTitle(r.title || "学习对话");
             const prefs = r.preferences || {};
+            setModelChoice(selection(prefs.llm_selection));
             setOptions((o) => ({
               ...o,
               ...(typeof prefs.capability === "string"
@@ -911,6 +926,10 @@ export default function Chat() {
           {!busy ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 20 }}>
               <SmallAction
+                title={`模型：${selectedModel(models, modelChoice)?.model || (modelChoice ? '已选模型（点此检查）' : '默认')} · 切换`}
+                onPress={() => setModelOpen(true)}
+              />
+              <SmallAction
                 title="切换学习方式"
                 onPress={() => setOptionsOpen(true)}
               />
@@ -920,6 +939,7 @@ export default function Chat() {
               />
             </View>
           ) : null}
+          {modelOpen && <ModelPicker value={modelChoice} onChange={setModelChoice} onClose={() => setModelOpen(false)} />}
           {document ? (
             <View
               style={{

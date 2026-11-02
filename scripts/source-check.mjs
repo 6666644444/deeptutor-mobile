@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
-export const roots = ['src', 'plugins', 'scripts', 'tests', 'docs', 'fixtures', '.github', 'modules'];
+export const roots = ['src', 'plugins', 'scripts', 'tests', 'docs', 'fixtures', '.github', 'modules', 'server'];
 export const files = ['AGENTS.md', 'README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'package.json', 'package-lock.json', 'app.config.js', 'fingerprint.config.js', 'tsconfig.json', 'tsconfig.tests.json', 'eslint.config.js', '.gitignore', '.env.example'];
 export function publicFiles() {
   const found = files.filter(f => { try { return lstatSync(path.join(root, f)).isFile(); } catch { return false; } });

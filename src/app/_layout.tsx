@@ -46,6 +46,7 @@ function Routes() {
           <Stack.Screen name="login" />
         </Stack.Protected>
         <Stack.Protected guard={!!user}>
+          <Stack.Screen name="models" />
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="chat/[id]" />
           <Stack.Screen name="question/[id]" />
