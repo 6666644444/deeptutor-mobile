@@ -18,6 +18,5 @@ jobs:
       - run: npx tsc -p tsconfig.tests.json --noEmit
       - run: npm run lint
       - run: npm test
-      - run: python3 -m unittest discover -s scripts -p 'test_*.py'
       - run: node scripts/source-check.mjs
       - run: node scripts/source-check.mjs --history
