@@ -40,6 +40,7 @@ function Routes() {
         }}
       >
         <Stack.Screen name="index" />
+        <Stack.Screen name="updates" />
         <Stack.Protected guard={!user}>
           <Stack.Screen name="login" />
         </Stack.Protected>

@@ -93,4 +93,4 @@ npm run export:source -- --output-dir <交付目录>
 
 iOS 分享扩展的 App Group 根据 bundle identifier 生成。真机发行需配置自己的 App Group、证书和 provisioning；模拟器构建通过不能替代真机验证。
 
-当前源码标签为 `v0.2.0-preview.2`，应用版本为 0.2.0（Android versionCode 2）。本地测试包不作为公开安装包发布。
+当前源码标签为 `v0.2.0-preview.3`，应用版本为 0.2.0（Android versionCode 2）。本地测试包不作为公开安装包发布。

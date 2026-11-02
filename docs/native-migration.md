@@ -1,6 +1,6 @@
 # Native preview migration
 
-The native client was introduced in **0.2.0-preview.1**. The current **0.2.0-preview.2** adds connection and workflow fixes. Existing service selection, anonymous/account modes, origin restrictions, cancellation, and service/account persistence remain authoritative.
+The native client was introduced in **0.2.0-preview.1**. **0.2.0-preview.2** added connection and workflow fixes; **0.2.0-preview.3** adds GitHub release checks without OTA. Existing service selection, anonymous/account modes, origin restrictions, cancellation, and service/account persistence remain authoritative.
 
 ## Architecture decisions
 

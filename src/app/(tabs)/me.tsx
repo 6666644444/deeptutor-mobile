@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "../../lib/auth";
+import { APP_RELEASE } from "../../lib/app-release";
 import { feature } from "../../features/common";
 import {
   Button,
@@ -95,8 +96,10 @@ export default function Me() {
           }
         />
       </View>
+      <Section title="关于应用" />
+      <Row title="应用更新" detail="查看新版本与更新说明" icon="cloud-download-outline" onPress={() => router.push("/updates")} />
       <Text style={[s.muted, { textAlign: "center", marginTop: 25 }]}>
-        DeepTutor 移动版 · 0.2.0 预览
+        DeepTutor 移动版 · {APP_RELEASE || "未标记版本"}
       </Text>
     </Page>
   );

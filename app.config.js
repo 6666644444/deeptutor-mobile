@@ -1,6 +1,7 @@
 module.exports = {
   expo: {
     name: "DeepTutor 移动版", slug: "deeptutor-mobile", version: "0.2.0",
+    extra: { releaseVersion: require("./package.json").version },
     orientation: "default", userInterfaceStyle: "light", scheme: "deeptutor-mobile",
     ios: { supportsTablet: true, bundleIdentifier: "org.deeptutormobile.client",
       infoPlist: { CFBundleDevelopmentRegion: "zh_CN", CFBundleLocalizations: ["zh_CN"],

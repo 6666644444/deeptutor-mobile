@@ -2,7 +2,7 @@
 
 DeepTutor 的非官方 Android / iOS 客户端，提供中文聊天、资料阅读与错题整理，连接你在电脑或服务器上自行部署的 DeepTutor。
 
-当前为 **[0.2.0-preview.2 源码预览](https://github.com/TinyPandaGame/deeptutor-mobile/releases/tag/v0.2.0-preview.2)**，适配目标为 DeepTutor 1.7.1。项目不包含后端、模型或现成安装包。
+当前为 **[0.2.0-preview.3 源码预览](https://github.com/TinyPandaGame/deeptutor-mobile/releases/tag/v0.2.0-preview.3)**，适配目标为 DeepTutor 1.7.1。项目不包含后端、模型或现成安装包。
 
 ## 功能
 
@@ -10,6 +10,7 @@ DeepTutor 的非官方 Android / iOS 客户端，提供中文聊天、资料阅�
 - 导入资料、阅读 PDF、显示公式和图表、导出与分享。
 - 错题搜索、编辑与分页；收藏内容可另存为可编辑笔记。
 - 切换服务、账号与工作区，自动恢复登录。
+- 在“我的 → 应用更新”检查 GitHub 新版本，查看发布说明。
 
 知识库、书籍、精通学习、写作等模块的范围与限制见[功能说明](docs/native-migration.md)，实际可用能力取决于服务端配置。
 
