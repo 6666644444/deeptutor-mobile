@@ -1,6 +1,6 @@
 {
   "name": "deeptutor-mobile",
-  "version": "0.2.0-preview.3",
+  "version": "0.3.0-preview.1",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -19,6 +19,7 @@
     "expo-secure-store": "~57.0.4",
     "expo-sharing": "~57.0.24",
     "expo-status-bar": "~57.0.1",
+    "expo-updates": "~57.0.26",
     "expo-video": "~57.0.5",
     "katex": "0.19.1",
     "mermaid": "11",

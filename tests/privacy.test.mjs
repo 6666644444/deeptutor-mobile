@@ -8,6 +8,8 @@ test('privacy checks reject contact addresses, home paths and actual token forma
   assert.throws(() => assertPublicText('README.md', ['', 'Users', 'test-user', 'notes.txt'].join('/')), /private material/);
   for (const prefix of ['ghp_', 'github_pat_', 'sk-'])
     assert.throws(() => assertPublicText('config.js', prefix + 'A'.repeat(40)), /private material/);
+  for (const kind of ['', 'RSA ', 'EC ', 'OPENSSH ', 'ENCRYPTED ', 'DSA '])
+    assert.throws(() => assertPublicText('signing.pem', '-----BEGIN ' + kind + 'PRIVATE KEY-----'), /private material/);
   assert.throws(() => assertPublicText('photo.jpg', 'placeholder'), /binary/);
 });
 

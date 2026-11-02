@@ -1,6 +1,6 @@
 # Native preview migration
 
-The native client was introduced in **0.2.0-preview.1**. **0.2.0-preview.2** added connection and workflow fixes; **0.2.0-preview.3** adds GitHub release checks without OTA. Existing service selection, anonymous/account modes, origin restrictions, cancellation, and service/account persistence remain authoritative.
+The native client was introduced in **0.2.0-preview.1**. **0.3.0-preview.1** adds signed GitHub OTA infrastructure to the existing release checker. Service selection, anonymous/account modes, origin restrictions, cancellation, and service/account persistence remain authoritative.
 
 ## Architecture decisions
 
@@ -14,12 +14,13 @@ The native client was introduced in **0.2.0-preview.1**. **0.2.0-preview.2** add
 | Math and diagrams | Plain React Native text loses math/layout; a handwritten parser would omit semantics | Reuse the existing WebView as a network-disabled inline canvas, add KaTeX, Mermaid and Chart.js with licenses. Larger bundle and dependency audit surface are accepted for this preview. Generated renderers come from locked npm packages, not a CDN. |
 | Keyboard | Existing basic avoidance is insufficient for long editors | Adopt the reference's react-native-keyboard-controller. It adds native code and requires a new build. |
 | Workspace | Previously no workspace selection | Extend the existing session manager; scope includes service, account and workspace, and switches retire old requests and temporary files. |
+| Updates | The release checker only linked to downloads; EAS adds hosted infrastructure, while a custom remote server adds deployment maintenance | Use SDK-matched expo-updates with GitHub Release assets and a local protocol adapter. Maintain both native adapters, an external signing key and runtime-specific acceptance. Existing installs need a new native base. |
 
 No server code, deployment credentials, private signing key or application data is part of this migration. New native modules are covered by the repository Apache-2.0 license; third-party renderer licenses remain separate.
 
 ## Preview boundaries
 
-This is not desktop feature parity. External partner channels/groups, some writing anchor discussions and review cards, manual mastery-map editing, knowledge sync-source management, and administrator model/tool management remain incomplete. EPUB uses extracted text/images. Calendar reminder fields are not device notifications. OTA is not configured. Feature availability depends on the selected server's configured models and services.
+This is not desktop feature parity. External partner channels/groups, some writing anchor discussions and review cards, manual mastery-map editing, knowledge sync-source management, and administrator model/tool management remain incomplete. EPUB uses extracted text/images. Calendar reminder fields are not device notifications. No public OTA manifest or installable binary is published for this source preview. Feature availability depends on the selected server's configured models and services.
 
 The common API target remains DeepTutor 1.7.1. Tests of another installation do not establish this repository's runtime readiness. Current validation is recorded separately in `validation.md`.
 

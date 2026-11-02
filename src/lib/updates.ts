@@ -45,6 +45,7 @@ export function compareVersions(a: string, b: string): number | null {
 export type AppRelease = {
   tag: string; url: string; notes: string; published: string;
   preview: boolean; hasAndroidApk: boolean;
+  otaAssets: { name: string; url: string }[];
 };
 const object = (value: unknown): Record<string, unknown> | null =>
   value !== null && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
@@ -68,7 +69,14 @@ export function parseReleases(payload: unknown): AppRelease[] {
         /\.apk$/i.test(asset.name) && typeof asset.size === "number" && asset.size > 0 &&
         asset.browser_download_url === `${RELEASES_URL}/download/${encodeURIComponent(tag)}/${encodeURIComponent(asset.name)}`;
     });
-    releases.push({ tag, url, published: row.published_at,
+    const otaAssets = row.assets.flatMap(value => {
+      const asset = object(value);
+      if (!asset || asset.state !== "uploaded" || typeof asset.name !== "string" ||
+        !/^ota-(android|ios)-[\w.-]+\.json$/.test(asset.name) || typeof asset.size !== "number" || asset.size <= 0 || asset.size > 2_000_000) return [];
+      const url = `${RELEASES_URL}/download/${encodeURIComponent(tag)}/${encodeURIComponent(asset.name)}`;
+      return asset.browser_download_url === url ? [{ name: asset.name, url }] : [];
+    });
+    releases.push({ tag, url, published: row.published_at, otaAssets,
       notes: typeof row.body === "string" ? row.body.slice(0, 12000) : "暂无更新说明。",
       preview: row.prerelease || !!parseVersion(tag)?.pre.length, hasAndroidApk: !!hasAndroidApk });
   }

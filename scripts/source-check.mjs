@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 export const roots = ['src', 'plugins', 'scripts', 'tests', 'docs', 'fixtures', '.github', 'modules'];
-export const files = ['AGENTS.md', 'README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'package.json', 'package-lock.json', 'app.config.js', 'tsconfig.json', 'tsconfig.tests.json', 'eslint.config.js', '.gitignore', '.env.example'];
+export const files = ['AGENTS.md', 'README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'package.json', 'package-lock.json', 'app.config.js', 'fingerprint.config.js', 'tsconfig.json', 'tsconfig.tests.json', 'eslint.config.js', '.gitignore', '.env.example'];
 export function publicFiles() {
   const found = files.filter(f => { try { return lstatSync(path.join(root, f)).isFile(); } catch { return false; } });
   const visit = dir => { for (const entry of readdirSync(path.join(root, dir), { withFileTypes: true })) {
@@ -24,7 +24,7 @@ const privateTerms = JSON.parse(process.env.SOURCE_PRIVATE_TERMS_JSON || '[]');
 if (!Array.isArray(privateTerms) || privateTerms.some(value => typeof value !== 'string' || !value))
   throw Error('SOURCE_PRIVATE_TERMS_JSON must be a JSON array of nonempty strings.');
 const forbidden = [/(?:\/Users\/|\/home\/)[^/\s]+\//, /[A-Z]:\\Users\\[^\\\s]+\\/i,
-  /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
+  /-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY-----/,
   /(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]{20,}/, /sk-[A-Za-z0-9_-]{20,}/,
   /AKIA[A-Z0-9]{16}/];
 const noticeFiles = new Set(['docs/third-party-license-texts.txt', 'docs/dependency-licenses.json', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'package-lock.json', 'src/features/chart-LICENSE.txt', 'src/features/mermaid-LICENSE.txt', 'src/features/katex-LICENSE.txt']);

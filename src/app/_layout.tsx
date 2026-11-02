@@ -8,6 +8,7 @@ import { Button, C, Empty, Loading, Page } from "../ui";
 import Connect from "./connect";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ShareObserver } from "../lib/share-observer";
+import { OtaNotice } from "../components/OtaNotice";
 function Routes() {
   const { api, user, booting, bootError, restore, editConnections, needsConnection } = useAuth();
   if (needsConnection && !booting) return <Connect />;
@@ -71,7 +72,10 @@ export default function RootLayout() {
       <KeyboardProvider>
       <AuthProvider>
         <StatusBar style="dark" />
-        <Routes />
+        <OtaNotice />
+        <SafeAreaProvider>
+          <Routes />
+        </SafeAreaProvider>
       </AuthProvider>
       </KeyboardProvider>
     </SafeAreaProvider>

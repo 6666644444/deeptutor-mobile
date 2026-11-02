@@ -4,8 +4,11 @@ import * as Linking from "expo-linking";
 import { APP_RELEASE } from "../lib/app-release";
 import { checkReleases, compareVersions, newestRelease, parseVersion, readableReleaseNotes, RELEASES_URL, type AppRelease } from "../lib/updates";
 import { Button, C, Heading, Page, Section, s } from "../ui";
+import { ota, useOta } from "../lib/ota";
+import { restartForUpdate } from "../components/OtaNotice";
 
 export default function Updates() {
+  const hotUpdate = useOta();
   const [releases, setReleases] = useState<AppRelease[] | null>(null);
   const [preview, setPreview] = useState(!!parseVersion(APP_RELEASE)?.pre.length);
   const [busy, setBusy] = useState(true);
@@ -42,6 +45,20 @@ export default function Updates() {
     difference === 0 ? "当前版本与最新发布一致" : "当前版本高于已发布版本";
   return <Page>
     <Heading title="应用更新" sub="查看客户端的新版本" back />
+    <View style={[s.card, { gap: 12, marginBottom: 16 }]}>
+      <Text style={s.h2}>自动更新</Text>
+      <Text style={s.text}>{({
+        disabled: "此安装包未启用热更新。",
+        idle: "打开应用时会检查我们测试通过的新版本。",
+        checking: "正在检查可用更新…", downloading: "正在下载更新，可继续学习…",
+        ready: "更新已下载，重新打开应用后生效。",
+        current: "当前安装包暂无可用的热更新。", error: hotUpdate.message,
+      })[hotUpdate.status]}</Text>
+      {!!hotUpdate.version && <Text style={s.muted}>更新版本：{hotUpdate.version}</Text>}
+      {hotUpdate.status === "ready" ? <Button title="重新打开应用" onPress={restartForUpdate} /> :
+        hotUpdate.status !== "disabled" && <Button title="检查并下载更新" secondary
+          busy={["checking", "downloading"].includes(hotUpdate.status)} onPress={() => void ota.check(true)} />}
+    </View>
     <View style={[s.card, { gap: 12 }]}>
       <Text style={s.h2}>DeepTutor 移动版</Text>
       <Text style={s.text}>当前版本：{APP_RELEASE || "未标记版本"}</Text>

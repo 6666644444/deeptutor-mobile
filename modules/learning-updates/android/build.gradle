@@ -1,0 +1,4 @@
+plugins { id 'com.android.library'; id 'expo-module-gradle-plugin' }
+group = 'org.deeptutormobile.updates'
+version = '0.1.0'
+android { namespace 'org.deeptutormobile.updates'; defaultConfig { versionCode 1; versionName '0.1.0' } }

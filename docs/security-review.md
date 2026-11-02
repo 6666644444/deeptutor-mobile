@@ -2,13 +2,17 @@
 
 Review date: 2026-11-02. Public source defaults to no server. Credentials are only entered in the installed app and saved using SecureStore. No telemetry SDK or analytics code was added. Expo developer tooling may contact Expo/npm during development; EXPO_NO_TELEMETRY=1 is used in local build scripts. Learning requests, downloads and native media go to the selected service. Cross-origin media is rejected. Rendered inline math/diagrams have no network or credential bridge.
 
-Source extraction used an explicit file allowlist. No private Git history, account files, textbook, photo, mistake record, model key, OAuth material or signing certificate was copied. `source-check.mjs` checks the deliverable text tree, including docs and examples. Artifacts, generated platform projects, env files and node_modules are excluded. It cannot detect every possible secret, so the staged file manifest must also be reviewed before publishing.
+Source extraction used an explicit file allowlist. No private Git history, account files, textbook, photo, mistake record, model key, OAuth material or private signing material was copied. `source-check.mjs` checks the deliverable text tree, including docs and examples. Artifacts, generated platform projects, env files and node_modules are excluded. It cannot detect every possible secret, so the staged file manifest must also be reviewed before publishing.
 
 Publication checks now include `source-check.mjs --history`: all reachable commits, file content, and author/committer contact addresses are reviewed in a full clone. Project commits use a nonpersonal identity; dependency-license attribution remains intact. Optional private deny terms are supplied only through `SOURCE_PRIVATE_TERMS_JSON`, never hardcoded into public rules. A passing check is evidence for its inspected scope, not a guarantee about unknown secrets or hosting-provider caches.
 
+## Update boundary
+
+Updates use this client's GitHub Releases without learning credentials. The repository contains only the public verification certificate; the private signing key stays outside source and releases. The loopback adapter forwards signed manifest bytes, while Expo verifies the signature, resource hashes and runtime. Embedded-update and startup fallback protections remain enabled. Android verification used a local distribution fixture; public GitHub OTA and iOS OTA runtime are not yet accepted. See [updates.md](updates.md).
+
 ## Dependency audit result
 
-The earlier 0.1.0 doctor result does not validate this dependency set. `npm audit` completed against the npm registry: **32 affected dependency entries — 5 high, 23 moderate, 4 low, 0 critical**. These counts include parent packages reported because of vulnerable transitive dependencies, not 32 separate vulnerabilities.
+The earlier 0.1.0 doctor result does not validate this dependency set. `npm audit` completed against the npm registry: **33 affected dependency entries — 5 high, 24 moderate, 4 low, 0 critical**. These counts include parent packages reported because of vulnerable transitive dependencies, not 33 separate vulnerabilities.
 
 Direct advisory roots:
 

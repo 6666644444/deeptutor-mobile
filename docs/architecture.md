@@ -13,3 +13,5 @@ PDF, images and audio/video are downloaded through the same-origin client before
 KaTeX, Mermaid and Chart.js render in isolated inline WebViews, using bundled resources. These views have no account or API bridge, no remote/file loading and no navigation. Only bounded numeric layout messages are accepted. They do not load the DeepTutor frontend. Content size and renderer maintenance remain preview concerns.
 
 Feature adapters live in `src/features/`; core service/session policy stays in `src/lib/`. Future compatibility changes should consolidate API definitions there, without importing the server's frontend.
+
+Application updates read only this client's GitHub Releases, without learning credentials. `LearningUpdates` exposes signed manifest bytes to `expo-updates` over a loopback-only protocol adapter; Expo verifies signatures, resource hashes and runtime compatibility before caching the update. Learning requests still use the selected service. Distribution and validation boundaries are documented in [updates.md](updates.md).

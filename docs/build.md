@@ -85,12 +85,12 @@ npm run mock -- --host 192.168.1.20 --base-port 8792
 npm run export:source -- --output-dir <交付目录>
 ```
 
-导出仅包含受检文本源码，附文件清单与 SHA-256，不含 Git 历史、生成工程、截图、安装包、环境文件或签名材料。
+导出仅包含受检文本源码，附文件清单与 SHA-256，不含 Git 历史、生成工程、截图、安装包、环境文件或私钥；包含用于更新校验的公开证书。
 
 ## 原生模块与版本
 
-`npm ci` 会从锁定依赖生成离线公式/图表资源；需要重新生成时运行 `npm run bundle:content`。PDF 和分享模块源码位于 `modules/`。根目录的 `android/`、`ios/` 及模块构建产物由工具生成，不纳入源码包。
+`npm ci` 会从锁定依赖生成离线公式/图表资源；需要重新生成时运行 `npm run bundle:content`。PDF、分享和更新模块源码位于 `modules/`。根目录的 `android/`、`ios/` 及模块构建产物由工具生成，不纳入源码包。
 
 iOS 分享扩展的 App Group 根据 bundle identifier 生成。真机发行需配置自己的 App Group、证书和 provisioning；模拟器构建通过不能替代真机验证。
 
-当前源码标签为 `v0.2.0-preview.3`，应用版本为 0.2.0（Android versionCode 2）。本地测试包不作为公开安装包发布。
+当前源码标签为 `v0.3.0-preview.1`，原生基础版本为 0.3.0（Android versionCode 3）。本地测试包不作为公开安装包发布。
