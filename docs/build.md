@@ -1,6 +1,36 @@
 # 安装、构建和启动
 
-源码预览锁定 Expo 57.0.31 / React Native 0.86.3 / React 19.2.3。需要 Node.js 24、npm ci、Python 3。Android 另需完整 JDK 17 或 21、Android SDK；iOS 需要 macOS、Xcode、可用的 Simulator runtime 和 CocoaPods。不要使用只有 java、没有 javac 的 JRE。
+## 使用发行附件
+
+`0.3.0-preview.3` 提供 [Android APK](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.0-preview.3/deeptutor-mobile-0.3.0-preview.3-arm64-v8a.apk) 与 [iOS 工程 ZIP](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.0-preview.3/deeptutor-mobile-0.3.0-preview.3-ios-project.zip)。附件校验值、签名和实际测试结果见[该版本 Release](https://github.com/TinyPandaGame/deeptutor-mobile/releases/tag/v0.3.0-preview.3)。
+
+### Android APK
+
+下载发布页中适合设备架构的 APK，按系统提示允许该安装来源。独立包内含 JS，无需 Node.js、Android Studio 或 Metro。首次打开填写自己的 DeepTutor 服务地址，再按服务设置登录；安装客户端不会在手机或电脑上自动部署 DeepTutor。
+
+升级前核对包名和签名。签名一致才可覆盖安装；遇到签名冲突先确认旧包来源和已有数据，不要直接卸载正在使用的版本。Release 的 SHA-256 用于确认下载文件完整，不能替代签名检查。
+
+### iOS Xcode 工程
+
+工程 ZIP 是供自行构建的项目，不是 IPA，也不是 TestFlight 安装入口。需要 macOS、Xcode、Node.js 24、npm、Python 3 和 CocoaPods；真机安装需要自己的 Apple 开发签名配置。
+
+解压后在包含 `package.json` 的工程根目录安装依赖，再安装 Pods：
+
+```sh
+npm ci
+npm run prepare:ios
+open ios/*.xcworkspace
+```
+
+打开 `.xcworkspace`，为主 App 和分享扩展设置自己的开发团队、签名与匹配的 App Group。更改 bundle identifier 或 App Group 时，应同步修改 Expo 配置并重新生成工程，避免只改一个 target。分享扩展的签名不能省略。
+
+`prepare:ios` 只为已有工程安装 Pods，不会重新生成工程或覆盖你在 Xcode 中设置的团队。下载包不包含 `node_modules`、Pods 或个人签名文件，不能跳过依赖安装。
+
+选用 Release 配置可构建内含 JS 的独立应用；Debug 调试需要下文的 Metro 流程。模拟器可使用对应 runtime，无需真机 provisioning；真机、归档和商店分发分别验证。工程不提供维护者的证书、私钥或 provisioning profile。
+
+## 从源码开发
+
+源码锁定 Expo 57.0.31 / React Native 0.86.3 / React 19.2.3。需要 Node.js 24、npm、Python 3。Android 另需完整 JDK 17 或 21、Android SDK；iOS 需要 macOS、Xcode、可用的 Simulator runtime 和 CocoaPods。不要使用只有 java、没有 javac 的 JRE。项目含自定义原生模块，不能直接用 Expo Go。
 
 ## 公共准备
 
@@ -21,7 +51,7 @@ node scripts/source-check.mjs --history
 
 ## Android
 
-设置 JAVA_HOME 指向完整 JDK；macOS 已登记的 JDK 17/21 可自动发现。ANDROID_HOME / ANDROID_SDK_ROOT 优先，其次检查系统常见 SDK 目录。本轮构建验证使用 Temurin JDK 21、SDK 36、NDK 27.1.12297006、Gradle 9.3.1、arm64 模拟器。
+设置 JAVA_HOME 指向完整 JDK 17 或 21；macOS 已登记的 JDK 可自动发现。ANDROID_HOME / ANDROID_SDK_ROOT 优先，其次检查系统常见 SDK 目录。各版本实际使用的构建环境见对应验收记录。
 
 先在 Android Studio 新建并启动自己的模拟器，或连接、授权测试手机：
 
@@ -77,7 +107,27 @@ npm run mock -- --host 192.168.1.20 --base-port 8792
 
 ## 生产构建和公开交付
 
-生产独立包使用 Expo 官方本地生产构建或自行配置的 EAS，先设定自己的包名与签名；生产 JS 随包内嵌，不依赖 Metro。签名资料放在仓库外。本次没有发行签名 APK/AAB/IPA 或上传 TestFlight。发行前还需处理 docs/security-review.md 中的适用依赖风险、真实服务与真机验证。
+### 构建 Android 发行包
+
+准备独立发行证书，并长期保管同一份 keystore；后续覆盖升级必须使用相同签名。仓库外的 Properties 文件包含 `storeFile`、`storePassword`、`keyAlias`、`keyPassword`，其中 `storeFile` 指向仓库外 keystore。macOS/Linux 下文件权限设为 `600`：
+
+```sh
+chmod 600 /secure/path/release.properties
+DTM_SIGNING_PROPERTIES=/secure/path/release.properties \
+  npm run release:android -- --output-dir /path/to/release
+```
+
+默认构建 `arm64-v8a`；需要另一架构时加 `--arch x86_64`。脚本不安装或上传 APK，会拒绝 debug 签名和可调试包，检查 APK 签名并生成同名 `.apk.json` 收据，记录 SHA-256、架构、versionCode 和签名证书摘要。后续发行可设置 `DTM_EXPECTED_CERT_SHA256` 为已确认的证书摘要，防止误用其他签名。输出目录已有同名文件时会拒绝覆盖。
+
+### 导出 iOS 工程
+
+```sh
+npm run export:ios -- --output-dir /path/to/release
+```
+
+脚本从公开源码清单重新生成 iOS 工程，导出 `deeptutor-mobile-<版本>-ios-project.zip` 与 `.zip.json` 收据。不带本机的 Pods、`node_modules`、签名、开发团队或本机 Node 路径。接收者按上文运行 `npm ci` 和 `npm run prepare:ios`，再配置自己的签名。
+
+两种发行脚本都设置 `EXPO_NO_DOTENV=1`，清除继承的 `EXPO_PUBLIC_*` 并将默认服务地址置空。Android APK 与 Xcode Release 构建的应用内含 JS，无需 Metro。脚本成功不能代替安装、冷启动、服务接入和签名连续性验收。公开分发仍需核对 [依赖风险](security-review.md)、目标设备及实际附件校验值。
 
 公开构建的 EXPO_PUBLIC_DEFAULT_SERVER 必须为空；该变量会进入客户端，绝不能放令牌。源码隐私检查可接收 SOURCE_PRIVATE_TERMS_JSON 环境变量中的私有禁用词数组；这些词不能写进公开扫描脚本或文档。--history 同时核查全部可达提交及作者/提交者邮箱，要求完整克隆；第三方许可证归属保留。检查通过不代替人工审阅。
 
@@ -89,8 +139,8 @@ npm run export:source -- --output-dir <交付目录>
 
 ## 原生模块与版本
 
-`npm ci` 会从锁定依赖生成离线公式/图表资源；需要重新生成时运行 `npm run bundle:content`。PDF、分享和更新模块源码位于 `modules/`。根目录的 `android/`、`ios/` 及模块构建产物由工具生成，不纳入源码包。
+`npm ci` 会从锁定依赖生成离线公式/图表资源；需要重新生成时运行 `npm run bundle:content`。PDF、分享和更新模块源码位于 `modules/`。根目录的 `android/`、`ios/` 由工具生成，不纳入常规源码包；iOS 工程附件另含生成的 Xcode 工程，不能与纯源码包混用说明。
 
 iOS 分享扩展的 App Group 根据 bundle identifier 生成。真机发行需配置自己的 App Group、证书和 provisioning；模拟器构建通过不能替代真机验证。
 
-当前源码标签为 `v0.3.0-preview.2`，原生基础版本为 0.3.0（Android versionCode 3）。本地测试包不作为公开安装包发布。
+本版源码标签为 `v0.3.0-preview.3`，原生基础版本为 0.3.0（Android versionCode 4）。iOS 工程的提供不代表已发行 IPA 或上传 TestFlight。

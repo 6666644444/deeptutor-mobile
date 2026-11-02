@@ -1,6 +1,6 @@
 {
   "name": "deeptutor-mobile",
-  "version": "0.3.0-preview.2",
+  "version": "0.3.0-preview.3",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
@@ -55,7 +55,10 @@
     "export:source": "node scripts/export-source.mjs",
     "mock": "node scripts/mock-service.mjs",
     "bundle:content": "node scripts/bundle-math-style.cjs && node scripts/bundle-diagrams.cjs",
-    "postinstall": "npm run bundle:content"
+    "postinstall": "npm run bundle:content",
+    "release:android": "python3 scripts/release-android.py",
+    "export:ios": "python3 scripts/export-ios-project.py",
+    "prepare:ios": "python3 scripts/prepare-ios.py"
   },
   "private": true,
   "license": "Apache-2.0"

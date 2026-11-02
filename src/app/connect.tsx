@@ -18,17 +18,17 @@ export default function Connect() {
     finally { if (mounted.current) setBusy(false); }
   }
   return <Page>
-    <Heading title="连接我的 DeepTutor" sub="学习服务由你自己的电脑或服务器提供" />
+    <Heading title="连接我的 DeepTutor" sub="首次填入地址，以后打开直接继续学习" />
     <View style={{ gap: 12 }}>
-      <Button title="连接我的电脑" secondary={kind !== "computer"} onPress={() => setKind("computer")} />
-      <Button title="连接服务器" secondary={kind !== "server"} onPress={() => setKind("server")} />
+      <Button title="我的电脑" disabled={busy} secondary={kind !== "computer"} onPress={() => setKind("computer")} />
+      <Button title="我的服务器" disabled={busy} secondary={kind !== "server"} onPress={() => setKind("server")} />
     </View>
     <View style={[s.card, { marginTop: 20, gap: 16 }]}>
       <Text style={s.text}>{kind === "computer" ? "电脑先安装并启动 DeepTutor，保持在线。手机与电脑连接同一 Wi-Fi，填写电脑的局域网地址。这里的“本地”指你的电脑。" : "填写你部署的 DeepTutor 服务首页地址。公网使用 HTTPS 并启用登录；私有网络可使用受保护的服务地址。"}</Text>
-      <Field label="服务地址" placeholder={kind === "computer" ? "http://192.168.1.20:3782" : "https://tutor.example.com"} value={url} onChangeText={setUrl} autoCapitalize="none" autoCorrect={false} keyboardType="url" editable={!busy} />
-      <Text style={s.muted}>不要填写 127.0.0.1 或 localhost，它们在手机上指手机自己。使用服务首页端口，需同时支持 API 与 WebSocket。</Text>
+      <Field label={kind === "computer" ? "电脑地址和端口" : "服务器地址"} placeholder={kind === "computer" ? "192.168.1.20:3782" : "tutor.example.com"} value={url} onChangeText={setUrl} autoCapitalize="none" autoCorrect={false} keyboardType="url" editable={!busy} onSubmitEditing={() => { if (!busy && url.trim()) void connect(); }} />
+      <Text style={s.muted}>可直接粘贴完整地址。电脑地址可省略 http://，公网域名默认使用 https://。不要填写 localhost 或 127.0.0.1。</Text>
       {error || auth.bootError ? <Text accessibilityRole="alert" style={{ color: C.danger }}>{error || auth.bootError}</Text> : null}
-      <Button title={busy ? "正在连接…" : "连接并继续"} busy={busy} disabled={!url.trim()} onPress={() => void connect()} />
+      <Button title={busy ? "正在检测学习服务…" : "下一步"} busy={busy} disabled={!url.trim()} onPress={() => void connect()} />
       <Text style={s.muted}>首次支持 DeepTutor 1.7.1。自动识别是否需要账号；下次打开自动恢复连接和登录。HTTP 局域网连接不加密，请只在可信网络使用。</Text>
     </View>
     {!!auth.profiles.length && <Section title="已保存的服务" />}

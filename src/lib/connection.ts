@@ -8,9 +8,18 @@ export function isPrivateHost(host: string) {
 }
 export function connection(input: string, kind: Connection["kind"]): Connection {
   let url: URL;
-  try { url = new URL(input.trim()); } catch { throw Error("请输入完整地址，例如 http://192.168.1.20:3782 或 https://tutor.example.com"); }
+  const trimmed = input.trim();
+  // A bare host is convenient on a phone. Never downgrade an explicit scheme.
+  let address = trimmed;
+  if (!trimmed.includes("://")) {
+    try {
+      const host = new URL(`https://${trimmed}`).hostname;
+      address = `${isPrivateHost(host) ? "http" : "https"}://${trimmed}`;
+    } catch { /* Validated below, alongside explicit URLs. */ }
+  }
+  try { url = new URL(address); } catch { throw Error("请输入电脑 IP 和端口，或服务器域名，例如 192.168.1.20:3782 或 tutor.example.com"); }
   if (!["http:", "https:"].includes(url.protocol) || url.username || url.password ||
-    url.pathname !== "/" || url.search || url.hash || /[\\\r\n]/.test(input) || input.length > 240)
+    url.pathname !== "/" || url.search || url.hash || trimmed.startsWith("/") || /[\\\r\n]/.test(input) || input.length > 240)
     throw Error("请填写服务首页地址，不要带账号、路径、参数或片段。");
   if (/^(localhost\.?|127\..*|\[::1\]|0\.0\.0\.0|\[::\])$/.test(url.hostname))
     throw Error("手机上的 127.0.0.1 / localhost 指手机自己。请填写电脑的局域网 IP 或可达的服务器域名。");

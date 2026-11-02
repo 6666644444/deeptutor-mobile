@@ -4,9 +4,20 @@
 
 拍照提问、阅读资料、整理错题，连接电脑或服务器上的学习服务。非官方 Android / iOS 客户端，界面为简体中文。
 
-[获取源码](https://github.com/TinyPandaGame/deeptutor-mobile/releases) · [构建指南](docs/build.md) · [接入电脑](docs/connect-computer.md) · [接入服务器](docs/connect-server.md)
+[版本与下载](https://github.com/TinyPandaGame/deeptutor-mobile/releases) · [接入电脑](docs/connect-computer.md) · [接入服务器](docs/connect-server.md) · [开发指南](docs/build.md)
 
-当前为 **0.3.0-preview.2 源码预览**，适配 DeepTutor 1.7.1。仓库包含客户端和可选个人模型扩展，不包含完整服务端、模型或现成安装包。
+适配 DeepTutor 1.7.1。学习服务和模型由你自己的电脑或服务器提供，手机保存连接后即可再次使用。
+
+## 下载与安装
+
+**0.3.0-preview.3**：[发布说明与校验信息](https://github.com/TinyPandaGame/deeptutor-mobile/releases/tag/v0.3.0-preview.3)。
+
+| 平台 | 交付形式 | 使用方式 |
+| --- | --- | --- |
+| Android | [下载 APK（arm64）](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.0-preview.3/deeptutor-mobile-0.3.0-preview.3-arm64-v8a.apk) | 安装后填写自己的服务地址；无需开发环境 |
+| iOS | [下载 Xcode 工程 ZIP](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.0-preview.3/deeptutor-mobile-0.3.0-preview.3-ios-project.zip) | 需要 Mac、Xcode、Node.js、Python 3、CocoaPods 及自己的签名；不是可直接安装的 IPA |
+
+iOS 工程准备和源码开发流程见[安装与构建指南](docs/build.md)。
 
 ## 可以做什么
 
@@ -20,15 +31,17 @@
 
 ## 开始使用
 
-1. 准备你自己的 DeepTutor 1.7.1 服务，保持电脑或服务器在线。
-2. 按[构建指南](docs/build.md)安装客户端。项目包含自定义原生模块，不能直接用 Expo Go。
-3. 填写手机可访问的服务地址，按服务设置登录。连接电脑使用局域网 IP；公网服务使用 HTTPS 和账号认证。
+1. 在自己的电脑或服务器上运行 DeepTutor 1.7.1，并安装客户端。
+2. 首次打开选择“我的电脑”或“我的服务器”，填写服务地址。私网 IP 可省略 `http://`，公网域名默认使用 `https://`；完整地址可直接粘贴。
+3. 按服务设置登录。连接与登录会保存，下次打开自动恢复；也可从已保存的服务切换。
+
+电脑需保持在线，手机不能填写电脑的 `localhost`。公网服务必须启用账号认证；两套独立部署之间不会自动同步资料。
 
 个人 API Key 提交给你连接的 DeepTutor 服务器保存，手机仅在编辑表单时使用输入值。请使用自己管理或信任的服务器；未安装个人模型扩展时，仍可切换服务器已授权的模型。
 
 ## 当前状态
 
-Android 已完成构建及关键流程实测。iOS 此前通过模拟器构建，本轮模型管理尚未完成 iOS 验收。详细结果见[验证记录](docs/validation.md)。
+Android 提供独立安装包，iOS 提供自行构建的工程。iOS 工程能够构建不代表已完成真机或 App Store 验收；具体测试范围见[验证记录](docs/validation.md)及对应版本的发布说明。
 
 签名热更新基础代码已提供，公开 OTA 尚未上线。预览版仍有[已知依赖风险](docs/security-review.md)，也未覆盖全部桌面功能。
 
