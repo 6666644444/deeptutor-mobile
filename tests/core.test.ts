@@ -1,10 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import vm from 'node:vm';
 import { connection, safePath, scopedKey, sameOrigin, isPrivateHost } from '../src/lib/connection.ts';
 import { ApiError, TutorClient, streamText } from '../src/lib/client.ts';
 import { SessionManager, type Storage } from '../src/lib/session-manager.ts';
-import { moduleBootstrap } from '../src/lib/module-bootstrap.ts';
 const A = connection('http://192.168.1.2:3782', 'computer');
 const B = connection('http://192.168.1.2:3783', 'computer');
 function response(value: unknown, status = 200, headers = {}) { return new Response(JSON.stringify(value), { status, headers }); }
@@ -103,18 +101,6 @@ test('incompatible status and changed auth mode fail closed', async () => {
   await assert.rejects(new TutorClient(A, null, (async () => response({ authenticated: true })) as typeof fetch).probe(), /兼容/);
   const f = fixture(), c = new TutorClient(A, { username: 'demo', password: 'demo-pass' }, f.fetcher); await c.login(); f.mode(false);
   await assert.rejects(c.ensureSession(), /认证设置/);
-});
-test('bootstrap authenticates and checks identity only on selected origin, escaping credentials', async () => {
-  const saved = { origin: A.origin, username: 'demo', password: '</script><img>', token: 'secret', user: { user_id: 'demo', username: 'demo', role: 'admin' } };
-  const html = moduleBootstrap(A, saved, '/learning/reading'); assert.equal(html.includes('</script><img>'), false); assert.equal(html.includes('secret'), false);
-  assert.throws(() => moduleBootstrap(B, saved, '/'), /不一致/);
-  const calls: string[] = [], messages: string[] = []; let target = '';
-  const script = /<script nonce="dt-bootstrap">([\s\S]*?)<\/script>/.exec(html)![1];
-  await vm.runInNewContext(script, { fetch: async (url: string) => { calls.push(url); return response(url.endsWith('/login') ? { user_id: 'demo' } : { enabled: true, authenticated: true, user_id: 'demo' }); }, localStorage: { setItem() {} }, window: { ReactNativeWebView: { postMessage: (m: string) => messages.push(m) } }, location: { replace: (url: string) => { target = url; } } });
-  assert.equal(calls.length, 2); assert.ok(calls.every(url => new URL(url).origin === A.origin)); assert.equal(target, A.origin + '/learning/reading'); assert.deepEqual(messages, ['authenticated']);
-});
-test('anonymous bootstrap avoids credential endpoint and verifies local-admin', () => {
-  const html = moduleBootstrap(A, null, '/'); assert.equal(html.includes('/api/auth/login'), false); assert.match(html, /local-admin/);
 });
 test('stream terminal result does not duplicate incremental text', () => {
   assert.equal(streamText({ type: 'result', content: 'same' }, 'same'), 'same');

@@ -3,13 +3,14 @@ import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
-export const roots = ['src', 'plugins', 'scripts', 'tests', 'docs', 'fixtures', '.github'];
+export const roots = ['src', 'plugins', 'scripts', 'tests', 'docs', 'fixtures', '.github', 'modules'];
 export const files = ['AGENTS.md', 'README.md', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'package.json', 'package-lock.json', 'app.config.js', 'tsconfig.json', 'tsconfig.tests.json', 'eslint.config.js', '.gitignore', '.env.example'];
 export function publicFiles() {
   const found = files.filter(f => { try { return lstatSync(path.join(root, f)).isFile(); } catch { return false; } });
   const visit = dir => { for (const entry of readdirSync(path.join(root, dir), { withFileTypes: true })) {
     const relative = `${dir}/${entry.name}`;
-    if (entry.isDirectory() && entry.name === '__pycache__') continue;
+    if (entry.isDirectory() && ['__pycache__', 'build', '.gradle'].includes(entry.name)) continue;
+    if (['src/features/chart-runtime.ts', 'src/features/mermaid-runtime.ts', 'src/features/katex-style.ts'].includes(relative)) continue;
     if (entry.isSymbolicLink()) throw Error(`Symlink forbidden: ${relative}`);
     if (entry.isDirectory()) visit(relative); else found.push(relative);
   } };
@@ -26,7 +27,7 @@ const forbidden = [/(?:\/Users\/|\/home\/)[^/\s]+\//, /[A-Z]:\\Users\\[^\\\s]+\\
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
   /(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]{20,}/, /sk-[A-Za-z0-9_-]{20,}/,
   /AKIA[A-Z0-9]{16}/];
-const noticeFiles = new Set(['docs/third-party-license-texts.txt', 'docs/dependency-licenses.json', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'package-lock.json']);
+const noticeFiles = new Set(['docs/third-party-license-texts.txt', 'docs/dependency-licenses.json', 'LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'package-lock.json', 'src/features/chart-LICENSE.txt', 'src/features/mermaid-LICENSE.txt', 'src/features/katex-LICENSE.txt']);
 const emailPattern = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi;
 const publicEmail = value => /@(?:users\.noreply\.github\.com|[^@]+\.(?:invalid|test)|example\.(?:com|org|net))$/i.test(value);
 export function assertPublicText(file, text) {
@@ -38,7 +39,8 @@ export function assertPublicText(file, text) {
 }
 for (const file of publicFiles()) assertPublicText(file, readFileSync(path.join(root, file), 'utf8'));
 export function auditHistory() {
-  const git = args => execFileSync('git', args, { cwd: root, encoding: 'utf8' });
+  // Collected dependency notices can exceed Node's default 1 MiB output limit.
+  const git = args => execFileSync('git', args, { cwd: root, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
   if (path.resolve(git(['rev-parse', '--show-toplevel']).trim()) !== path.resolve(root)) throw Error('Run history checks in this repository.');
   if (git(['rev-parse', '--is-shallow-repository']).trim() === 'true') throw Error('History scan requires a full clone (git fetch --unshallow).');
   const commits = git(['rev-list', '--all']).trim().split('\n').filter(Boolean);

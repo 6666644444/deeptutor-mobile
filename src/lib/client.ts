@@ -1,7 +1,8 @@
 import { isPrivateHost, safePath, scopedKey, type Connection } from "./connection.ts";
+import { questionEntries } from "./question-entries.ts";
 export type User = { user_id: string; username: string; role: string };
 export type Credentials = { username: string; password: string };
-export type SavedLogin = Credentials & { origin: string; user: User; token: string };
+export type SavedLogin = Credentials & { origin: string; user: User; token: string; workspaceId?: string };
 export type AuthStatus = { enabled: boolean; authenticated: boolean; user_id?: string; username?: string; role?: string };
 export class ApiError extends Error {
   status: number;
@@ -12,6 +13,7 @@ export function tokenFromCookie(header: string | null) {
 }
 export class TutorClient {
   token = "";
+  workspaceId = "";
   user: User | null = null;
   mode: "account" | "anonymous" = "account";
   readonly config: Connection;
@@ -26,7 +28,23 @@ export class TutorClient {
   constructor(config: Connection, credentials: Credentials | null = null, fetcher: typeof fetch = fetch) {
     this.config = config; this.credentials = credentials; this.fetcher = fetcher;
   }
-  get scope() { return scopedKey(this.config.origin, this.user?.user_id || "pending"); }
+  get scope() { return scopedKey(this.config.origin, this.user?.user_id || "pending") + ":" + encodeURIComponent(this.workspaceId); }
+  forWorkspace(workspaceId: string) {
+    this.assertOpen();
+    if (/[\r\n\0]/.test(workspaceId) || workspaceId.length > 256) throw new ApiError("工作区标识无效。");
+    const next = new TutorClient(this.config, this.credentials, this.fetcher);
+    next.token = this.token; next.user = this.user; next.mode = this.mode; next.workspaceId = workspaceId;
+    return next;
+  }
+  contentPath(value: string) {
+    this.assertOpen();
+    const url = new URL(value, this.config.origin);
+    if (url.origin !== this.config.origin || url.username || url.password || /[\\\r\n]/.test(value))
+      throw new ApiError("素材不属于当前服务，未发送登录凭据。");
+    const path = url.pathname + url.search;
+    safePath(this.config, path);
+    return path;
+  }
   get isClosed() { return this.closed; }
   assertOpen() { if (this.closed) throw new ApiError("连接或账号已切换，已取消旧操作。"); }
   onClose(dispose: () => void) { this.assertOpen(); this.disposers.add(dispose); return () => this.disposers.delete(dispose); }
@@ -41,6 +59,8 @@ export class TutorClient {
     try {
       const headers = new Headers(init.headers);
       headers.delete("Cookie"); headers.delete("Authorization");
+      headers.delete("X-DeepTutor-Workspace");
+      if (this.workspaceId && !path.startsWith("/api/auth/")) headers.set("X-DeepTutor-Workspace", this.workspaceId);
       if (this.token) headers.set("Authorization", `Bearer ${this.token}`);
       // expo/fetch implements redirect:error and credentials:omit on both platforms.
       // No shared native cookie jar: cookies for equal hosts on different ports cannot collide.
@@ -94,7 +114,7 @@ export class TutorClient {
       const token = tokenFromCookie(r.headers.get("set-cookie"));
       if (!token) throw new ApiError("当前环境未能取得登录会话。请使用 Android / iOS 安装客户端。");
       this.token = token; this.user = user;
-      return { ...this.credentials, origin: this.config.origin, user, token };
+      return { ...this.credentials, origin: this.config.origin, user, token, workspaceId: this.workspaceId };
     }, 25000);
   }
   async renew() {
@@ -121,7 +141,11 @@ export class TutorClient {
       if (!r.ok) throw new ApiError(r.status === 404 ? "此内容不存在、当前账号不可访问，或服务未安装此功能。" : `暂时无法完成操作（${r.status}）。`, r.status);
       return { unauthorized: false as const, data: r.status === 204 ? undefined as T : await r.json() as T };
     }, timeout);
-    if (!result.unauthorized) return result.data;
+    if (!result.unauthorized) {
+      if (path.split("?")[0] === "/api/question-notebook/entries" && (!init.method || init.method === "GET"))
+        return questionEntries(result.data) as T;
+      return result.data;
+    }
     if (retry && this.mode === "account") {
       await this.renew();
       if (!init.method || init.method === "GET" || init.method === "HEAD") return this.request(path, init, false, timeout);
@@ -132,17 +156,24 @@ export class TutorClient {
   json<T>(path: string, body: unknown, method = "POST") {
     return this.request<T>(path, { method, body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
   }
-  async download(path: string) {
+  async download(path: string, init: RequestInit = {}, timeout = 60000, limit = 100 * 1024 * 1024) {
     await this.ensureSession();
-    return this.consume(path, {}, async r => {
+    return this.consume(path, init, async r => {
       if (!r.ok) throw new ApiError(`未能读取文件（${r.status}）。`, r.status);
-      return r.arrayBuffer();
-    }, 60000);
+      if (Number(r.headers.get("content-length")) > limit) throw new ApiError("文件过大，请分段读取或导出。");
+      const bytes = await r.arrayBuffer();
+      if (bytes.byteLength > limit) throw new ApiError("文件过大，请分段读取或导出。");
+      return bytes;
+    }, timeout);
+  }
+  async text(path: string, timeout = 60000) {
+    return new TextDecoder().decode(await this.download(path, {}, timeout));
   }
   socketOptions() {
     this.assertOpen();
     return { url: this.config.origin.replace(/^http/, "ws") + "/ws", headers: {
       Origin: this.config.origin, Cookie: "", ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      ...(this.workspaceId ? { "X-DeepTutor-Workspace": this.workspaceId } : {}),
     } };
   }
   close() {
@@ -171,7 +202,9 @@ export type Session = {
   message_count: number;
   updated_at: string | number;
   content_workspace_id?: string;
-  messages?: { id: string; role: string; content: string }[];
+  messages?: { id: string; role: string; content: string; events?: TurnEvent[] }[];
+  preferences?: Record<string, unknown>;
+  active_turn?: { id: string; status: string; last_seq: number };
 };
 export type Material = {
   material_id: string;
@@ -200,5 +233,6 @@ export function streamText(event: TurnEvent, previous: string): string {
     return previous + event.content;
   if (event.type === "result" && typeof event.content === "string" && !previous)
     return event.content;
+  if (event.type === "result" && typeof event.metadata?.response === "string") return event.metadata.response;
   return previous;
 }

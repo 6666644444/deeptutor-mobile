@@ -1,14 +1,19 @@
+import { ownTemporaryFile } from "../lib/temporary-files";
 import { useRef, useState } from "react";
 import { Alert, Platform, Text, View } from "react-native";
-import { router } from "expo-router";
-import { File } from "expo-file-system";
-import { ownTemporaryFile } from "../lib/temporary-files";
+import { router, useLocalSearchParams } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import { useAuth } from "../lib/auth";
-import { Button, Heading, Page, Section, openModule, s } from "../ui";
+import { materialUpload } from "../lib/material-upload";
+import { useResource } from "../lib/resources";
+import { Button, Heading, Page, Section, s } from "../ui";
 
 export default function AddMaterial() {
   const { api, user } = useAuth();
+  const formats = useResource<{ extensions: string[] }>(
+    "/api/reading/supported-formats",
+  );
+  const { workspace } = useLocalSearchParams<{ workspace?: string }>();
   const [file, setFile] = useState<DocumentPicker.DocumentPickerAsset | null>(
     null,
   );
@@ -30,37 +35,29 @@ export default function AddMaterial() {
     setMessage("");
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: [
-          "application/pdf",
-          "text/plain",
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        ],
+        type: "*/*",
         copyToCacheDirectory: true,
         multiple: false,
       });
       if (result.canceled) return;
       const selected = result.assets[0];
-      if (!/\.(pdf|docx|txt)$/i.test(selected.name)) {
-        Alert.alert("暂不支持这个文件", "请选择 PDF、DOCX 或 TXT 文件。");
-        return;
-      }
-      if ((selected.size || 0) > 25 * 1024 * 1024) {
+      const ext = "." + (selected.name.split(".").pop()?.toLowerCase() || "");
+      if (
+        !(formats.data?.extensions || [".pdf", ".docx", ".txt"]).includes(ext)
+      ) {
         Alert.alert(
-          "文件超过 25 MB",
-          "可以进入阅读与教材，添加这份较大的资料。",
-          [
-            { text: "取消", style: "cancel" },
-            {
-              text: "阅读与教材",
-              onPress: () => openModule("/learning/reading", "阅读与教材"),
-            },
-          ],
+          "暂不支持这个文件",
+          "学习服务不支持这个文件格式，请先导出为 PDF、Word 或文本。",
         );
         return;
       }
-      if (!api || api.isClosed) return;
-      const uri = await ownTemporaryFile(api, selected.uri, selected.name);
-      setFile({ ...selected, uri });
+      if ((selected.size || 0) > 25 * 1024 * 1024) {
+        Alert.alert("文件超过 25 MB", "请压缩文件或分章节后添加。");
+        return;
+      }
+      if (!api) return;
+      selected.uri = await ownTemporaryFile(api, selected.uri, selected.name);
+      setFile(selected);
       setSubmitted(false);
     } catch {
       setMessage("暂时无法打开文件，请重试，或先将资料下载到手机后再选择。");
@@ -76,16 +73,19 @@ export default function AddMaterial() {
     setUploading(true);
     setSubmitted(true);
     setMessage("正在上传和解析，请稍候…");
-    const form = new FormData();
-    form.append("file", new File(file.uri), file.name);
     try {
-      await api.ensureSession();
-      await api.request(
+      const upload = await materialUpload(file, formats.data?.extensions);
+      const material = await api.request<{ material_id: string }>(
         "/api/reading/materials",
-        { method: "POST", body: form },
+        { method: "POST", ...upload },
         true,
         180000,
       );
+      if (workspace)
+        await api.json(
+          `/api/reading/workspaces/${encodeURIComponent(workspace)}/materials`,
+          { material_id: material.material_id, make_active: true },
+        );
       setMessage("资料已保存，返回资料页即可阅读。");
       setFile(null);
     } catch (e) {
@@ -105,8 +105,8 @@ export default function AddMaterial() {
       <View style={[s.card, { gap: 12 }]}>
         <Text style={s.h2}>从手机或网盘选择</Text>
         <Text style={s.muted}>
-          支持 PDF、DOCX、TXT，单个文件不超过 25
-          MB。选好后确认添加，才会保存到学习资料中。
+          支持服务端可解析的教材、文档和音视频，单个文件不超过 25
+          MB。选好后确认添加，才会保存到学习资料中。音视频转写需服务端配置语音识别。
         </Text>
         <Button
           title={file ? "重新选择文件" : "选择文件"}
@@ -157,14 +157,16 @@ export default function AddMaterial() {
       <Section title="微信、飞书或其他网盘的资料" />
       <View style={[s.card, { gap: 12 }]}>
         <Text style={s.text}>
-          请先在来源 App 中把文件下载或导出为 PDF、DOCX 或 TXT，再到这里选择。当前版本尚不接收外部 App 直接分享。
+          在来源 App 中选择文件，点分享或“用其他应用打开”，选择“DeepTutor
+          学习”。也可以先下载或导出为 PDF、DOCX，再到这里选择。
         </Text>
         <Text style={s.muted}>
           如果网盘已接入手机的系统文件列表，也可以在文件选择器的位置或侧边菜单中找到它。
         </Text>
         <Text style={s.muted}>
           仅有云文档链接或提取码时，请先在来源 App
-          中打开并下载。
+          中打开并下载。苹果接收后请打开
+          DeepTutor，在“待接收资料”中核对账号并确认保存。
         </Text>
       </View>
     </Page>

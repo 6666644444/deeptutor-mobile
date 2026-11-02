@@ -1,0 +1,28 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <application>
+    <activity android:name="org.deeptutormobile.sharing.ReceiveShareActivity"
+      android:exported="true" android:label="@string/app_name"
+      android:configChanges="orientation|screenSize|keyboardHidden"
+      android:theme="@android:style/Theme.Material.Light.NoActionBar"
+      android:excludeFromRecents="true">
+      <intent-filter>
+        <action android:name="android.intent.action.SEND" />
+        <action android:name="android.intent.action.SEND_MULTIPLE" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:mimeType="application/pdf" />
+        <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+        <data android:mimeType="text/plain" />
+        <data android:mimeType="application/octet-stream" />
+      </intent-filter>
+      <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <data android:scheme="content" />
+        <data android:mimeType="application/pdf" />
+        <data android:mimeType="application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+        <data android:mimeType="text/plain" />
+        <data android:mimeType="application/octet-stream" />
+      </intent-filter>
+    </activity>
+  </application>
+</manifest>

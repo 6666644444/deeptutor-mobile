@@ -1,3 +1,4 @@
+import { feature } from "../../features/common";
 import { router } from "expo-router";
 import { useResource } from "../../lib/resources";
 import { Material } from "../../lib/client";
@@ -10,7 +11,7 @@ import {
   Page,
   Row,
   Section,
-  openModule,
+  openFeature,
 } from "../../ui";
 export default function Materials() {
   const materials = useResource<Material[]>("/api/reading/materials");
@@ -25,10 +26,17 @@ export default function Materials() {
         icon="add-circle-outline"
         onPress={() => router.push("/add-material")}
       />
+      <Section title="来自其他 App" />
+      <Row
+        title="待接收资料"
+        detail="查看微信、飞书等 App 分享来的文件"
+        icon="download-outline"
+        onPress={() => router.push("/share-inbox")}
+      />
       <Section
         title="教材与阅读"
         action="阅读空间"
-        onPress={() => openModule("/learning/reading", "阅读空间")}
+        onPress={() => openFeature("/learning/reading", "阅读空间")}
       />
       {materials.error ? (
         <Failure message={materials.error} retry={materials.reload} />
@@ -45,14 +53,14 @@ export default function Materials() {
             key={m.material_id}
             title={m.title || m.filename}
             detail={`${m.unit_count || 0} ${m.unit === "page" ? "页" : "个内容单元"} · ${Math.max(1, Math.round(m.byte_size / 1024))} KB`}
-            onPress={() => openModule("/learning/reading", "阅读资料")}
+            onPress={() => feature("reading", "", {material:m.material_id})}
           />
         ))
       )}
       <Section
         title="笔记与收藏"
         action="查看全部"
-        onPress={() => openModule("/notebooks", "笔记与收藏")}
+        onPress={() => openFeature("/notebooks", "笔记与收藏")}
       />
       {notes.error ? (
         <Failure message={notes.error} retry={notes.reload} />
@@ -63,7 +71,7 @@ export default function Materials() {
             icon="bookmark-outline"
             title={n.name}
             detail={`${n.record_count} 条记录`}
-            onPress={() => openModule("/notebooks", n.name)}
+            onPress={() => feature("notebooks", n.id)}
           />
         ))
       )}

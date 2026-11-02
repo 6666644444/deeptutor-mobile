@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { Heading, Page, Row, openModule } from "../ui";
+import { Heading, Page, Row, openFeature } from "../ui";
 const modules = [
   ["阅读与教材", "阅读、PDF、划线与讲解", "/learning/reading"],
   ["练习与出题", "按知识点练习、批改与复习", "/learning/practice"],
@@ -37,7 +37,7 @@ export default function Modules() {
           key={path}
           title={title}
           detail={detail}
-          onPress={() => openModule(path, title)}
+          onPress={() => openFeature(path, title)}
         />
       ))}
     </Page>

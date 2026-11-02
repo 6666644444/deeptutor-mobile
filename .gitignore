@@ -1,7 +1,11 @@
 node_modules/
 .expo/
-android/
-ios/
+/android/
+/ios/
+modules/**/build/
+modules/**/.gradle/
+src/features/*-runtime.ts
+src/features/katex-style.ts
 dist/
 artifacts/
 .env*

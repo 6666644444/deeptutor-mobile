@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Alert, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "../../lib/auth";
+import { feature } from "../../features/common";
 import {
   Button,
   C,
@@ -9,7 +10,6 @@ import {
   Page,
   Row,
   Section,
-  openModule,
   s,
 } from "../../ui";
 export default function Me() {
@@ -51,12 +51,12 @@ export default function Me() {
         title="学习记忆"
         detail="回顾学过的内容与学习偏好"
         icon="sparkles-outline"
-        onPress={() => openModule("/memory", "学习记忆")}
+        onPress={() => feature("memory")}
       />
       <Row
         title="学习工作区"
         icon="layers-outline"
-        onPress={() => openModule("/settings/workspace", "学习工作区")}
+        onPress={() => feature("workspaces")}
       />
       <Section title="服务连接" />
       <Row title={config?.kind === "computer" ? "我的电脑" : "我的服务器"} detail={config?.origin} icon="server-outline" onPress={editConnections} />
@@ -96,7 +96,7 @@ export default function Me() {
         />
       </View>
       <Text style={[s.muted, { textAlign: "center", marginTop: 25 }]}>
-        DeepTutor 移动版 · 0.1.0
+        DeepTutor 移动版 · 0.2.0 预览
       </Text>
     </Page>
   );

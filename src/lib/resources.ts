@@ -2,7 +2,29 @@ import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { useAuth } from "./auth";
 import { AppState } from "react-native";
-export function useResource<T>(path: string) {
+// Poll only visible, active jobs. Never re-submit mutations or keep a hidden
+// account/workspace screen reading in the background.
+export function useJobPolling(
+  reload: () => Promise<void>,
+  active: boolean,
+  delay = 7000,
+) {
+  useFocusEffect(
+    useCallback(() => {
+      if (!active) return;
+      let pending = false;
+      const timer = setInterval(() => {
+        if (pending || AppState.currentState !== "active") return;
+        pending = true;
+        void reload().finally(() => {
+          pending = false;
+        });
+      }, delay);
+      return () => clearInterval(timer);
+    }, [reload, active, delay]),
+  );
+}
+export function useResource<T>(path: string | null) {
   const { api } = useAuth();
   const key = `${api?.scope || ""}:${path}`;
   const [stored, setStored] = useState<{ key: string; value: T } | null>(null);
@@ -12,7 +34,10 @@ export function useResource<T>(path: string) {
   const run = useRef(0);
   const reload = useCallback(async () => {
     const id = ++run.current;
-    if (!api) return;
+    if (!api || !path) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError("");
     try {

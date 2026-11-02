@@ -6,7 +6,11 @@
 
 同一个客户端可以连接你自己的电脑或 VPS。首次选择“连接我的电脑”或“连接服务器”，填写手机可访问的服务首页地址，按服务实际设置登录。下次打开自动连接并恢复会话。电脑必须在线且网络可达；“本地”指电脑，不是手机运行模型。独立部署之间不自动同步数据。
 
-当前已实现连接管理、单用户免登录 / 账号认证识别、安全保存登录、失效会话自动恢复、按服务与账号隔离、聊天与流式回复、错题、资料添加、拍照入口，以及内嵌模块。学习页右上不重复显示“我”；资料添加保留返回、取消和上传前确认。外部 App 直接分享接收尚未实现：请先下载或导出文件，再用系统文件选择器添加。
+当前版本 **0.2.0-preview.1** 是原生重构源码预览。客户端拥有阅读、知识库、学习书籍、精通学习、笔记、写作、伙伴、记忆、日历、工作区及聊天页面，通过当前服务的 API / WebSocket 访问能力。旧模块地址只跳转到客户端自己的页面，不再打开上游应用网页或注入登录凭据。
+
+保留多服务配置、免登录/账号模式、自动恢复、服务＋账号＋工作区隔离、照片/文档导入。外部 App 分享文件先进入本机收件箱，确认服务和账号后才上传。PDF 使用本地原生模块；数学与图表仍使用禁止网络访问的内联 WebView 内容画布，因此不能称为“完全没有 WebView”。
+
+这不是桌面功能完全等价版本，也不包含后端或模型。模块范围、依赖取舍和未完成的高级工作流见 [迁移说明](docs/native-migration.md)。本次发布只提供源码包，不提供已签名的公开 APK / IPA。
 
 ## 快速运行
 
@@ -15,7 +19,7 @@
 ```sh
 git clone https://github.com/TinyPandaGame/deeptutor-mobile.git
 cd deeptutor-mobile
-npm ci
+npm ci  # 同时从锁定依赖生成离线公式/图表资源
 npm run typecheck
 npx tsc -p tsconfig.tests.json --noEmit
 npm test
@@ -45,7 +49,7 @@ npm run ios -- --list-devices
 npm run ios -- --device <模拟器UDID>
 ```
 
-两端调试包依赖 Metro；第二次只需重装/启动已有包时，在对应命令追加 `--launch-only`。构建脚本不启动或占用已有后端，不发布安装包。iOS 不要关闭代码签名或手工添加设备 entitlement，否则模拟器 Keychain 会失败。完整参数、工具链和正式构建说明见 [构建说明](docs/build.md)。修改 `plugins/` 或原生依赖后必须重建。此项目包含 WebSocket 隔离插件，**不能使用 Expo Go 代替自有构建来验收隔离**。
+两端调试包依赖 Metro；第二次只需重装/启动已有包时，在对应命令追加 `--launch-only`。构建脚本不启动或占用已有后端，不发布安装包。iOS 不要关闭代码签名或手工添加设备 entitlement，否则模拟器 Keychain 会失败。完整参数、工具链和正式构建说明见 [构建说明](docs/build.md)。修改 `plugins/` 或原生依赖后必须重建。此项目包含 PDF、分享接收原生模块及 WebSocket 隔离插件，**不能使用 Expo Go 代替自有构建来验收隔离**。
 
 仅用虚拟服务试用，不需要 DeepTutor 或模型账号：
 
@@ -62,7 +66,7 @@ iOS 模拟器或真实手机的业务服务不能填手机自己的回环地址�
 npm run mock -- --host 192.168.1.20 --base-port 8792
 ```
 
-两端均填写 `http://192.168.1.20:8792`，免登录为 8793、第二个认证服务为 8794。仅使用虚拟账号与资料；不向公网转发这些测试端口。数据只在内存，这是接口测试替身，不是模型。`fixtures/fixture.txt` 可用于上传。测试结束按 Ctrl+C 关闭虚拟服务。
+两端均填写 `http://192.168.1.20:8792`，免登录为 8793、第二个认证服务为 8794。仅使用虚拟账号与资料；不向公网转发这些测试端口。数据只在内存，这是接口测试替身，不是模型。`fixtures/fixture.txt` 可用于上传。阅读资料库包含内存生成的虚拟 PDF；聊天输入 `render` 可查看公式和图表示例。未实现的测试接口返回 404，不能把虚拟服务当成完整后端。测试结束按 Ctrl+C 关闭虚拟服务。
 
 ## 连接与安全
 
@@ -80,4 +84,4 @@ npm run mock -- --host 192.168.1.20 --base-port 8792
 
 本仓库只包含客户端源码、配置插件、测试、虚拟数据和文档，没有服务端、模型、私人 Git 历史、账号文件、教材或学习记录。Android/iOS 生成目录、测试截图、安装包、签名材料与 `.env.local` 不进入仓库。
 
-客户端采用 [Apache-2.0](LICENSE)。上游为 [HKUDS/DeepTutor](https://github.com/HKUDS/DeepTutor)，保留 [NOTICE](NOTICE) 与 [第三方归属](THIRD_PARTY_NOTICES.md)。内嵌页面由用户部署的 DeepTutor 提供，不等于所有功能已用 React Native 重写。
+客户端采用 [Apache-2.0](LICENSE)。上游为 [HKUDS/DeepTutor](https://github.com/HKUDS/DeepTutor)，保留 [NOTICE](NOTICE) 与 [第三方归属](THIRD_PARTY_NOTICES.md)。服务端能力由用户部署的 DeepTutor 提供；客户端页面与隔离内容画布的边界见架构文档。

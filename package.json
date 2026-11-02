@@ -1,10 +1,14 @@
 {
   "name": "deeptutor-mobile",
-  "version": "0.1.0",
+  "version": "0.2.0-preview.1",
   "main": "expo-router/entry",
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
+    "@types/katex": "0.16.8",
+    "chart.js": "4.6.1",
     "expo": "~57.0.31",
+    "expo-asset": "~57.0.20",
+    "expo-audio": "~57.0.5",
     "expo-constants": "~57.0.22",
     "expo-document-picker": "~57.0.3",
     "expo-file-system": "~57.0.7",
@@ -13,10 +17,15 @@
     "expo-linking": "~57.0.13",
     "expo-router": "~57.0.29",
     "expo-secure-store": "~57.0.4",
+    "expo-sharing": "~57.0.24",
     "expo-status-bar": "~57.0.1",
+    "expo-video": "~57.0.5",
+    "katex": "0.19.1",
+    "mermaid": "11",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-keyboard-controller": "1.21.9",
     "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0",
@@ -43,7 +52,9 @@
     "check:source": "node scripts/source-check.mjs",
     "check:history": "node scripts/source-check.mjs --history",
     "export:source": "node scripts/export-source.mjs",
-    "mock": "node scripts/mock-service.mjs"
+    "mock": "node scripts/mock-service.mjs",
+    "bundle:content": "node scripts/bundle-math-style.cjs && node scripts/bundle-diagrams.cjs",
+    "postinstall": "npm run bundle:content"
   },
   "private": true,
   "license": "Apache-2.0"

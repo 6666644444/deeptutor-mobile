@@ -1,9 +1,9 @@
+import { ownTemporaryFile } from "../lib/temporary-files";
 import { useState } from "react";
 import { Alert, Image, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useAuth } from "../lib/auth";
-import { ownTemporaryFile } from "../lib/temporary-files";
 import { Photo, photoDraft } from "../lib/drafts";
 import { Button, Empty, Heading, Page, s } from "../ui";
 export default function Capture() {
@@ -35,8 +35,9 @@ export default function Capture() {
         if (!a.base64) throw new Error("图片未能读取，请重新选择。");
         if (a.base64.length > 10 * 1024 * 1024)
           throw new Error("照片较大，请裁剪到一道题再试。");
-        if (!api || api.isClosed) return;
-        setPhoto({ uri: await ownTemporaryFile(api, a.uri, "question.jpg"), base64: a.base64, filename: "question.jpg" });
+        if (!api) return;
+        const uri = await ownTemporaryFile(api, a.uri, "question.jpg");
+        setPhoto({ uri, base64: a.base64, filename: "question.jpg" });
       }
     } catch (e) {
       Alert.alert("未能取得照片", (e as Error).message);

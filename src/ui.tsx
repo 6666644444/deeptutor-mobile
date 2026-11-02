@@ -2,7 +2,6 @@ import React from "react";
 import {
   ActivityIndicator,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -11,8 +10,13 @@ import {
   type ColorValue,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  KeyboardAwareScrollView,
+  type KeyboardAwareScrollViewProps,
+} from "react-native-keyboard-controller";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
+import { nativeDestination } from "./lib/native-routes";
 export const C = {
   bg: "#F6F8F7",
   white: "#FFFFFF",
@@ -74,6 +78,18 @@ export function Button({
     </Pressable>
   );
 }
+// Follow the focused caret, including multiline edits and switching fields while
+// the keyboard is already open. The offset is breathing room, not keyboard height.
+export function FormScrollView(props: KeyboardAwareScrollViewProps) {
+  return (
+    <KeyboardAwareScrollView
+      bottomOffset={20}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      {...props}
+    />
+  );
+}
 export function Page({
   children,
   scroll = true,
@@ -82,14 +98,11 @@ export function Page({
   scroll?: boolean;
 }) {
   return (
-    <SafeAreaView edges={["top", "left", "right"]} style={s.page}>
+    <SafeAreaView edges={["top", "left", "right", "bottom"]} style={s.page}>
       {scroll ? (
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={s.pageBody}
-        >
+        <FormScrollView contentContainerStyle={s.pageBody}>
           {children}
-        </ScrollView>
+        </FormScrollView>
       ) : (
         children
       )}
@@ -255,8 +268,8 @@ export function Row({
     </Pressable>
   );
 }
-export function openModule(path: string, title: string) {
-  router.push({ pathname: "/module", params: { path, title } });
+export function openFeature(path: string, _title?: string) {
+  router.push(nativeDestination(path));
 }
 export const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: C.bg },

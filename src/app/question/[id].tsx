@@ -22,8 +22,8 @@ function NewQuestion() {
   const { api } = useAuth();
   const [draft] = useState(() => (api ? questionDraft.take(api) : undefined));
   const [question, setQuestion] = useState(draft?.question || "");
-  const [answer, setAnswer] = useState("");
-  const [correct, setCorrect] = useState("");
+  const [answer, setAnswer] = useState(draft?.user_answer || "");
+  const [correct, setCorrect] = useState(draft?.correct_answer || "");
   const [explanation, setExplanation] = useState(draft?.explanation || "");
   const [busy, setBusy] = useState(false);
   const [id] = useState(

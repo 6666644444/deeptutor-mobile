@@ -6,6 +6,8 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { AuthProvider, useAuth } from "../lib/auth";
 import { Button, C, Empty, Loading, Page } from "../ui";
 import Connect from "./connect";
+import { KeyboardProvider } from "react-native-keyboard-controller";
+import { ShareObserver } from "../lib/share-observer";
 function Routes() {
   const { api, user, booting, bootError, restore, editConnections, needsConnection } = useAuth();
   if (needsConnection && !booting) return <Connect />;
@@ -51,8 +53,11 @@ function Routes() {
           <Stack.Screen name="history" />
           <Stack.Screen name="modules" />
           <Stack.Screen name="module" />
+          <Stack.Screen name="feature" />
+          <Stack.Screen name="share-inbox" />
         </Stack.Protected>
       </Stack>
+      <ShareObserver />
 
     </>
   );
@@ -62,10 +67,12 @@ export default function RootLayout() {
   if (!fonts) return null;
   return (
     <SafeAreaProvider>
+      <KeyboardProvider>
       <AuthProvider>
         <StatusBar style="dark" />
         <Routes />
       </AuthProvider>
+      </KeyboardProvider>
     </SafeAreaProvider>
   );
 }

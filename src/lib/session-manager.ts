@@ -1,7 +1,7 @@
 import { ApiError, TutorClient, type SavedLogin } from "./client.ts";
 import { connection, scopedKey, serviceKey, type Connection } from "./connection.ts";
 export type Storage = { get: (key: string) => Promise<string | null>; set: (key: string, value: string) => Promise<void>; remove: (key: string) => Promise<void> };
-type Profile = Connection & { account?: string };
+type Profile = Connection & { account?: string; workspaceId?: string };
 type Registry = { active?: string; profiles: Profile[] };
 export type Snapshot = { api: TutorClient | null; config: Connection | null; profiles: Profile[]; booting: boolean; bootError: string; needsConnection: boolean };
 const REGISTRY = "dtm.registry.v1";
@@ -14,24 +14,34 @@ export class SessionManager {
   private pending: TutorClient | null = null;
   private writes: Promise<unknown> = Promise.resolve();
   private listeners = new Set<() => void>();
-  constructor(storage: Storage, fetcher: typeof fetch) { this.storage = storage; this.fetcher = fetcher; }
+  private retired: Promise<void> = Promise.resolve();
+  private onRetire: () => Promise<void>;
+  constructor(storage: Storage, fetcher: typeof fetch, onRetire = async () => {}) { this.storage = storage; this.fetcher = fetcher; this.onRetire = onRetire; }
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private update(value: Partial<Snapshot>) { this.snapshot = { ...this.snapshot, ...value }; for (const fn of this.listeners) fn(); }
   private write(fn: () => Promise<void>) { const result = this.writes.then(fn); this.writes = result.catch(() => {}); return result; }
   private persistRegistry(epoch: number) { return this.write(async () => { if (epoch === this.epoch) await this.storage.set(REGISTRY, JSON.stringify(this.registry)); }); }
   private begin(config = this.snapshot.config) {
     const epoch = ++this.epoch;
+    if (this.snapshot.api) {
+      this.retired = this.retired.catch(() => {}).then(this.onRetire);
+      void this.retired.catch(() => {});
+    }
     this.pending?.close(); this.pending = null; this.snapshot.api?.close();
     this.update({ api: null, config, booting: true, bootError: "" });
     return epoch;
   }
   private current(epoch: number, client: TutorClient) { if (epoch !== this.epoch) { client.close(); throw new ApiError("连接已切换。"); } }
-  private install(client: TutorClient, epoch: number) {
+  private async install(client: TutorClient, epoch: number) {
+    this.retired = this.retired.catch(() => this.onRetire());
+    await this.retired;
     this.current(epoch, client);
     this.pending = null;
     client.onRenewed = saved => this.saveLogin(saved, epoch);
     client.onExpired = () => {
-      if (epoch === this.epoch) { void this.logout(true); }
+      if (epoch === this.epoch) { void this.logout(true).catch(error => {
+        if (epoch + 1 === this.epoch) this.update({ booting: false, bootError: (error as Error).message });
+      }); }
     };
     this.update({ api: client, booting: false, needsConnection: false, bootError: "" });
   }
@@ -50,7 +60,7 @@ export class SessionManager {
       if (raw) {
         const value = JSON.parse(raw) as Registry;
         if (!Array.isArray(value.profiles) || value.profiles.length > 8) throw Error("invalid");
-        this.registry = { active: value.active, profiles: value.profiles.map(p => ({ ...connection(p.origin, p.kind), account: p.account })) };
+        this.registry = { active: value.active, profiles: value.profiles.map(p => ({ ...connection(p.origin, p.kind), account: p.account, workspaceId: p.workspaceId })) };
       }
       this.update({ profiles: this.registry.profiles });
       const config = this.registry.profiles.find(p => p.origin === this.registry.active);
@@ -69,7 +79,7 @@ export class SessionManager {
       this.registry = { active: config.origin, profiles: existing ? this.registry.profiles.map(p => p.origin === config.origin ? { ...p, kind: config.kind } : p) : [...this.registry.profiles, config] };
       await this.persistRegistry(epoch); this.current(epoch, client);
       this.update({ profiles: this.registry.profiles, needsConnection: false });
-      if (!status.enabled) { this.install(client, epoch); return; }
+      if (!status.enabled) { client.workspaceId = existing?.workspaceId || ""; await this.install(client, epoch); return; }
       if (existing?.account) {
         await this.writes;
         const raw = await this.storage.get(scopedKey(config.origin, existing.account)); this.current(epoch, client);
@@ -79,10 +89,10 @@ export class SessionManager {
             throw new ApiError("登录记录身份不匹配，请重新登录。", 401);
           client.close();
           const restored = new TutorClient(config, saved, this.fetcher); this.pending = restored;
-          restored.user = saved.user; restored.token = saved.token;
+          restored.user = saved.user; restored.token = saved.token; restored.workspaceId = saved.workspaceId || "";
           restored.onRenewed = value => this.saveLogin(value, epoch);
           await restored.ensureSession(); this.current(epoch, restored);
-          this.install(restored, epoch); return;
+          await this.install(restored, epoch); return;
         }
       }
       client.close(); this.pending = null; this.update({ booting: false });
@@ -102,7 +112,7 @@ export class SessionManager {
     this.update({ booting: false });
     try {
       const state = await client.probe(); this.current(epoch, client);
-      if (!state.enabled) { this.install(client, epoch); return; }
+      if (!state.enabled) { await this.install(client, epoch); return; }
       const saved = await client.login(); this.current(epoch, client);
       const previousAccount = this.registry.profiles.find(p => p.origin === config.origin)?.account;
       await this.saveLogin(saved, epoch); this.current(epoch, client);
@@ -112,7 +122,7 @@ export class SessionManager {
       }
       this.registry.profiles = this.registry.profiles.map(p => p.origin === config.origin ? { ...p, account: saved.username } : p);
       await this.persistRegistry(epoch); this.current(epoch, client);
-      this.update({ profiles: this.registry.profiles }); this.install(client, epoch);
+      this.update({ profiles: this.registry.profiles }); await this.install(client, epoch);
     } catch (e) { client.close(); if (epoch === this.epoch) { this.pending = null; this.update({ booting: false }); } throw e; }
   }
   async savedCredentials() {
@@ -126,11 +136,33 @@ export class SessionManager {
     if (!saved || saved.origin !== config.origin || saved.user.user_id !== api.user?.user_id) throw new ApiError("请重新登录。");
     return saved;
   }
+  async setWorkspace(workspaceId: string) {
+    const old = this.snapshot.api;
+    if (!old || old.workspaceId === workspaceId) return;
+    const saved = await this.savedCredentials();
+    if (this.snapshot.api !== old) throw new ApiError("连接已切换。");
+    const next = old.forWorkspace(workspaceId);
+    const epoch = this.begin(old.config); this.pending = next;
+    try {
+      next.onRenewed = value => this.saveLogin(value, epoch);
+      await next.request("/api/settings/workspace"); this.current(epoch, next);
+      if (saved) await this.saveLogin({ ...saved, token: next.token, workspaceId }, epoch);
+      this.current(epoch, next);
+      this.registry.profiles = this.registry.profiles.map(p => p.origin === next.config.origin ? { ...p, workspaceId } : p);
+      await this.persistRegistry(epoch); this.current(epoch, next);
+      this.update({ profiles: this.registry.profiles }); await this.install(next, epoch);
+    } catch (e) {
+      next.close();
+      if (epoch === this.epoch) { this.pending = null; this.update({ booting: false, bootError: (e as Error).message }); }
+      throw e;
+    }
+  }
   async logout(expired = false) {
     const config = this.snapshot.config;
     const account = this.registry.profiles.find(p => p.origin === config?.origin)?.account;
     const anonymous = this.snapshot.api?.mode === "anonymous";
     const epoch = this.begin(config);
+    await this.retired;
     if (config && account) await this.write(() => this.storage.remove(scopedKey(config.origin, account)));
     if (epoch !== this.epoch) return;
     this.registry.profiles = this.registry.profiles.map(p => p.origin === config?.origin ? { origin: p.origin, kind: p.kind } : p);

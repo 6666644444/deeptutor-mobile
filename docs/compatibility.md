@@ -1,6 +1,6 @@
 # 兼容范围与上游依据
 
-首个明确适配目标：**HKUDS/DeepTutor v1.7.1**，tag 对应 commit `f7aed0744c36c5afef16a4261c31ebee1208cac2`，2026-11-01 读取官方源码核实。源码预览版为 0.1.0。1.7.0 / 更旧版本、未来版本和第三方修改版不自动纳入支持范围。
+首个明确适配目标：**HKUDS/DeepTutor v1.7.1**，tag 对应 commit `f7aed0744c36c5afef16a4261c31ebee1208cac2`，2026-11-01 读取官方源码核实。源码预览版为 0.2.0-preview.1。1.7.0 / 更旧版本、未来版本和第三方修改版不自动纳入支持范围。
 
 客户端探测认证状态的字段结构；它没有公开、稳定、免权限的上游版本协商接口，**不会把状态探测通过说成已自动确认服务版本**。请管理员确认安装的是该版本。功能模块可选安装；若服务没有相应模块，客户端显示错误或保留入口，不承诺缺失功能可用。
 
@@ -8,12 +8,12 @@
 | --- | --- | --- |
 | 认证探测 | `GET /api/auth/status`: enabled, authenticated, user_id, username, role | 缺字段拒绝连接；200 + authenticated=false 也会触发续期 |
 | 单用户 | enabled=false, authenticated=true, user_id=local-admin | 私有网入口免登录；不伪造账号或发送登录请求 |
-| 账号登录 | `POST /api/auth/login`, JSON username/password；用户信息 + HttpOnly dt_token Cookie | 安全存储；原生使用 Bearer；WebView 独立 Cookie |
+| 账号登录 | `POST /api/auth/login`, JSON username/password；用户信息 + HttpOnly dt_token Cookie | 安全存储；原生使用 Bearer；内联内容画布不接收凭据 |
 | HTTP / WS 认证 | 官方 require_auth 接受 Bearer 或 dt_token | 客户端不混用系统 Cookie；同一服务根源 |
 | 聊天 | `/ws`, protocol_version=2.0、start_turn、content / result / done / seq | 基础流式文本；复杂互动在完整对话页面继续 |
-| 学习数据 | `/api/sessions`、question-notebook、reading/materials、notebooks | 沿用原移动端入口，列表首批有数量上限；全量操作走内嵌页 |
+| 学习数据 | `/api/sessions`、question-notebook、reading/materials、notebooks | 沿用原移动端入口，列表首批有数量上限；原生功能页通过同源 API 操作 |
 | 资料上传 | multipart file 到 `/api/reading/materials` | PDF / DOCX / TXT，25 MB；确认后才上传，不自动重发 |
-| 内嵌模块 | 同源前端页面与官方 auth 接口 | 仅当前连接源；不能连接独立的另一网页地址 |
+| 原生模块 | reading、books、mastery-paths、notebooks、documents、partners、memory、calendar、workspace 等 API | 以迁移说明列出的实现与限制为准；不打开上游应用网页 |
 
 首版适配内建用户名密码认证。PocketBase 返回形态相似，但未实测，暂不列为已支持；设备凭据、session-handoff、OAuth-only、外部登录网关未适配。需要改密或管理员限制时在服务允许的网页操作；客户端不绕过服务端策略。
 

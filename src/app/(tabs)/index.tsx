@@ -1,3 +1,4 @@
+import { conversationTitle } from "../../lib/conversation";
 import { Pressable, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Material, Session, Stats } from "../../lib/client";
@@ -148,7 +149,7 @@ export default function Home() {
         sessions.data?.sessions.map((item) => (
           <Row
             key={item.id}
-            title={item.title || "新的对话"}
+            title={conversationTitle(item.title)}
             detail={`${item.message_count || 0} 条消息 · 点击继续`}
             icon="chatbubble-ellipses-outline"
             onPress={() =>

@@ -1,6 +1,6 @@
 # Privacy and dependency review
 
-Review date: 2026-11-01. Public source defaults to no server. Credentials are only entered in the installed app and saved using SecureStore. No telemetry SDK or analytics code was added. Expo developer tooling may contact Expo/npm during development; EXPO_NO_TELEMETRY=1 is used in local build scripts. Learning requests go to the selected service; external references open in a separate browser after confirmation.
+Review date: 2026-11-02. Public source defaults to no server. Credentials are only entered in the installed app and saved using SecureStore. No telemetry SDK or analytics code was added. Expo developer tooling may contact Expo/npm during development; EXPO_NO_TELEMETRY=1 is used in local build scripts. Learning requests, downloads and native media go to the selected service. Cross-origin media is rejected. Rendered inline math/diagrams have no network or credential bridge.
 
 Source extraction used an explicit file allowlist. No private Git history, account files, textbook, photo, mistake record, model key, OAuth material or signing certificate was copied. `source-check.mjs` checks the deliverable text tree, including docs and examples. Artifacts, generated platform projects, env files and node_modules are excluded. It cannot detect every possible secret, so the staged file manifest must also be reviewed before publishing.
 
@@ -8,12 +8,13 @@ Publication checks now include `source-check.mjs --history`: all reachable commi
 
 ## Dependency audit result
 
-`expo-doctor`: 21/21 compatibility checks passed. `npm audit` completed against the npm registry: **29 affected dependency entries — 5 high, 22 moderate, 2 low, 0 critical**. These counts include parent packages reported because of vulnerable transitive dependencies, not 29 separate vulnerabilities.
+The earlier 0.1.0 doctor result does not validate this dependency set. `npm audit` completed against the npm registry: **32 affected dependency entries — 5 high, 23 moderate, 4 low, 0 critical**. These counts include parent packages reported because of vulnerable transitive dependencies, not 32 separate vulnerabilities.
 
 Direct advisory roots:
 
 | Package | Concern | Review result |
 | --- | --- | --- |
+| Mermaid 11 / nested KaTeX | Existing prototype pollution may bypass nested KaTeX trust restrictions | Mermaid is an isolated, no-network inline renderer. Its bundled nested runtime remains affected; do not claim an npm override would patch a prebuilt bundle. A separately tested major upgrade is deferred. |
 | decode-uri-component 0.2.2 (query-string / expo-router) | Malformed URL decoding DoS, [GHSA-qr28-fpjm-wq7f](https://github.com/advisories/GHSA-qr28-fpjm-wq7f) | Runtime-relevant router dependency. 0.5.1 is ESM while the current caller is CommonJS; do not force override without bundler/routing tests. |
 | zod 3.25.76 | Oversized constrained collection memory exhaustion, [GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5) | Used by development/build dependencies; the audit proposes a different major API. |
 | glob 13.0.6 / minimatch 3.x and 10.x | Cancellation / amplification DoS | Primarily CLI and lint traversal; fixes cross current dependency majors. |

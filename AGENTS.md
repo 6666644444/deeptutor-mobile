@@ -1,5 +1,9 @@
 This is an Expo/React Native mobile application. Prioritize mobile-first patterns, performance, and cross-platform compatibility.
 
+## Public native-client boundary
+
+Keep user-selected computer/server origins, anonymous/account modes, and service/account/workspace isolation. All application screens are client-owned API/WS workflows. Inline math/diagram canvases must not load upstream application pages or receive credentials. Reference projects are read-only; never copy their deployment defaults, signing material, data or Git history. Generated renderer files are recreated by npm ci, not committed.
+
 ## Expo has changed — do not trust your training data
 
 Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:

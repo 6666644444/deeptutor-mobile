@@ -1,16 +1,19 @@
 import { useState } from "react";
-import {
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Pressable, RefreshControl, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { useResource } from "../../lib/resources";
 import { Question } from "../../lib/client";
-import { C, Empty, Failure, Heading, Icon, Loading, Page, s } from "../../ui";
+import {
+  C,
+  Empty,
+  Failure,
+  FormScrollView,
+  Heading,
+  Icon,
+  Loading,
+  Page,
+  s,
+} from "../../ui";
 export default function Mistakes() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
@@ -26,7 +29,7 @@ export default function Mistakes() {
     ) || [];
   return (
     <Page scroll={false}>
-      <ScrollView
+      <FormScrollView
         contentContainerStyle={s.pageBody}
         refreshControl={
           <RefreshControl
@@ -155,7 +158,7 @@ export default function Mistakes() {
             道题；更早的题目可在「全部功能」→「练习与出题」中查看。
           </Text>
         ) : null}
-      </ScrollView>
+      </FormScrollView>
     </Page>
   );
 }
