@@ -1,4 +1,4 @@
-import type { TutorClient } from "./client";
+import type { TutorClient, ChatAttachment } from "./client";
 export type Photo = { uri: string; base64: string; filename: string };
 export type QuestionDraft = {
   question: string;
@@ -6,6 +6,7 @@ export type QuestionDraft = {
   correct_answer?: string;
   user_answer?: string;
   session_id?: string;
+  images?: ChatAttachment[];
 };
 const photos = new WeakMap<TutorClient, Photo>();
 const questions = new WeakMap<TutorClient, QuestionDraft>();

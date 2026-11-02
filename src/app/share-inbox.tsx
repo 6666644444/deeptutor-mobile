@@ -117,8 +117,8 @@ export default function ShareInbox() {
           title={progress ? "接收已完成" : "还没有待接收文件"}
           detail={
             Platform.OS === "ios"
-              ? "在其他 App 中分享文件给 DeepTutor，接收后回到这里确认保存。"
-              : "在其他 App 中选择文件，点击分享或用其他应用打开，再选择 DeepTutor 学习。"
+              ? "在其他 App 中分享文件给 DeepTutor 移动版，接收后回到这里确认保存。"
+              : "在其他 App 中选择文件，点击分享或用其他应用打开，再选择 DeepTutor 移动版。"
           }
         />
       ) : (

@@ -1,11 +1,14 @@
 import { PrivateImage } from "../../components/PrivateImage";
 import { useState } from "react";
-import { Alert, Pressable, Text, View } from "react-native";
+import { Alert, Image, Pressable, Text, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useAuth } from "../../lib/auth";
 import { Question } from "../../lib/client";
 import { questionDraft } from "../../lib/drafts";
 import { useResource } from "../../lib/resources";
+import { Editor, confirmDelete, Prose } from "../../features/common";
+import { questionUpdate } from "../../lib/learning-records";
+import { copyQuestionImages } from "../../lib/question-images";
 import {
   Button,
   C,
@@ -33,18 +36,32 @@ function NewQuestion() {
     if (!api || busy || !question.trim()) return;
     setBusy(true);
     try {
-      await api.json("/api/question-notebook/entries/upsert", {
-        origin_type: draft?.session_id ? "conversation" : "external_import",
-        origin_ref: draft?.session_id || id,
-        session_id: draft?.session_id || "",
-        question_id: id,
-        question: question.trim(),
-        user_answer: answer,
-        correct_answer: correct,
-        explanation,
-        source: "import",
-        is_correct: false,
-      });
+      const images = draft?.images?.length
+        ? await copyQuestionImages(api, draft.images, id)
+        : undefined;
+      const saved = await api.json<Question>(
+        "/api/question-notebook/entries/upsert",
+        {
+          origin_type: draft?.session_id ? "conversation" : "external_import",
+          origin_ref: draft?.session_id || id,
+          session_id: draft?.session_id || "",
+          question_id: id,
+          question: question.trim(),
+          user_answer: answer,
+          correct_answer: correct,
+          explanation,
+          ...(images ? { user_answer_images: images } : {}),
+          source: "import",
+          is_correct: false,
+        },
+      );
+      if (
+        draft?.images?.length &&
+        saved.user_answer_images?.length !== draft.images.length
+      )
+        throw new Error(
+          "文字已保存，但图片未完整保存。请保留本页并重试，不要重复新建题目。",
+        );
       router.replace("/(tabs)/mistakes");
     } catch (e) {
       Alert.alert("保存未确认", (e as Error).message);
@@ -56,6 +73,27 @@ function NewQuestion() {
     <Page>
       <Heading title="记录一道错题" sub="校对后再保存，方便以后回顾" back />
       <View style={{ gap: 18 }}>
+        {draft?.images?.length ? (
+          <>
+            <Text style={s.muted}>
+              原图会一起保存。请对照识别结果校对题目；看不清的地方可手动补充。
+            </Text>
+            {draft.images.map((image, i) =>
+              image.url ? (
+                <PrivateImage key={i} path={image.url} />
+              ) : image.base64 ? (
+                <Image
+                  key={i}
+                  source={{
+                    uri: `data:${image.mime_type || "image/jpeg"};base64,${image.base64}`,
+                  }}
+                  style={{ width: "100%", height: 240 }}
+                  resizeMode="contain"
+                />
+              ) : null,
+            )}
+          </>
+        ) : null}
         <Field
           label="题目"
           value={question}
@@ -100,6 +138,7 @@ function QuestionDetail({ id }: { id: string }) {
   );
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
   const q = r.data;
   async function update(value: object) {
     if (!api || busy) return;
@@ -153,9 +192,7 @@ function QuestionDetail({ id }: { id: string }) {
                 </Text>
               ))}
             </View>
-            <Text selectable style={s.text}>
-              {q.question}
-            </Text>
+            <Prose text={q.question} />
             {Object.entries(q.options || {}).map(([key, value]) => (
               <Text key={key} style={s.text}>
                 {key}. {value}
@@ -188,12 +225,12 @@ function QuestionDetail({ id }: { id: string }) {
             <>
               <Section title="答案与讲解" />
               <View style={[s.card, { gap: 15 }]}>
-                <Text selectable style={s.text}>
-                  {q.correct_answer || "这道题还没有保存标准答案。"}
-                </Text>
-                <Text selectable style={s.text}>
-                  {q.explanation || "可以请 DeepTutor 帮你重新讲解。"}
-                </Text>
+                <Prose
+                  text={q.correct_answer || "这道题还没有保存标准答案。"}
+                />
+                <Prose
+                  text={q.explanation || "可以请 DeepTutor 帮你重新讲解。"}
+                />
               </View>
             </>
           )}
@@ -214,9 +251,71 @@ function QuestionDetail({ id }: { id: string }) {
               busy={busy}
               onPress={() => void update({ resolved: !q.resolved })}
             />
+            <Button
+              title="编辑题目与笔记"
+              secondary
+              disabled={busy}
+              onPress={() => setEditing(true)}
+            />
+            <Button
+              title="删除这道题"
+              secondary
+              disabled={busy}
+              onPress={() =>
+                confirmDelete("这道题", async () => {
+                  if (!api) return;
+                  await api.request(
+                    `/api/question-notebook/entries/${encodeURIComponent(id)}`,
+                    { method: "DELETE" },
+                  );
+                  router.replace("/(tabs)/mistakes");
+                })
+              }
+            />
           </View>
         </>
       )}
+      {editing && q ? (
+        <Editor
+          title="编辑题目与笔记"
+          fields={[
+            {
+              key: "question",
+              label: "题目",
+              value: q.question,
+              multiline: true,
+              required: true,
+            },
+            {
+              key: "user_answer",
+              label: "我的作答",
+              value: q.user_answer,
+              multiline: true,
+            },
+            {
+              key: "correct_answer",
+              label: "正确答案",
+              value: q.correct_answer,
+              multiline: true,
+            },
+            {
+              key: "explanation",
+              label: "讲解与笔记",
+              value: q.explanation,
+              multiline: true,
+            },
+          ]}
+          onClose={() => setEditing(false)}
+          onSave={async (values) => {
+            if (!api) return;
+            await api.json(
+              "/api/question-notebook/entries/upsert",
+              questionUpdate(q, values),
+            );
+            await r.reload();
+          }}
+        />
+      ) : null}
     </Page>
   );
 }

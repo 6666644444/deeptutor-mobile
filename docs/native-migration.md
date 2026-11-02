@@ -1,6 +1,6 @@
 # Native preview migration
 
-The public client moves from 0.1.0 to **0.2.0-preview.1**. Its version line is independent of the implementation reference. Existing service selection, anonymous/account modes, origin restrictions, cancellation, and service/account persistence remain authoritative.
+The native client was introduced in **0.2.0-preview.1**. The current **0.2.0-preview.2** adds connection and workflow fixes. Existing service selection, anonymous/account modes, origin restrictions, cancellation, and service/account persistence remain authoritative.
 
 ## Architecture decisions
 

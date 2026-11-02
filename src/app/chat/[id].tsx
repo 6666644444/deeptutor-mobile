@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Image,
-  Modal,
   Pressable,
   ScrollView,
   Text,
@@ -15,7 +14,17 @@ import * as DocumentPicker from "expo-document-picker";
 import { File } from "expo-file-system";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { useAuth } from "../../lib/auth";
-import { Session, TurnEvent, streamText } from "../../lib/client";
+import {
+  Session,
+  TurnEvent,
+  ChatAttachment,
+  streamText,
+} from "../../lib/client";
+import {
+  PHOTO_QUESTION_PROMPT,
+  photoQuestionDraft,
+} from "../../lib/photo-question";
+import { PrivateImage } from "../../components/PrivateImage";
 import { Photo, photoDraft, questionDraft, chatDraft } from "../../lib/drafts";
 import { Button, C, Empty, Field, Heading, Icon, Page, s } from "../../ui";
 
@@ -27,13 +36,19 @@ import {
   personaLabels,
 } from "../../features/capabilities";
 import { Content, Data, object, array, string } from "../../features/content";
-import { dialogueParts, conversationTitle } from "../../lib/conversation";
-import { Chips, Prose, SmallAction } from "../../features/common";
+import {
+  dialogueParts,
+  conversationTitle,
+  visibleMessage,
+  cancelledTurn,
+} from "../../lib/conversation";
+import { Chips, Editor, Prose, SmallAction } from "../../features/common";
 type Message = {
   id: string;
   role: string;
   content: string;
   events?: TurnEvent[];
+  attachments?: ChatAttachment[];
 };
 
 function displayBody(message: Message) {
@@ -96,7 +111,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState(
     initialPhoto
-      ? "请先识别图片里的题目和作答，列出不确定的地方，等我校对后再讲解。"
+      ? PHOTO_QUESTION_PROMPT
       : initialDraft?.content
         ? initialDraft.content
         : questionId
@@ -108,26 +123,36 @@ export default function Chat() {
     useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [picking, setPicking] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const cancellation = useRef({ requested: false, sent: false, turnId: "" });
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const socket = useRef<WebSocket | null>(null);
   const turn = useRef("");
   const sending = useRef(false);
   const waitingRef = useRef(false);
   const alive = useRef(true);
   const scroll = useRef<ScrollView>(null);
-  async function saveTitle() {
-    if (!api || !sid.current || !renameText.trim()) return;
-    try {
-      await api.json(
-        `/api/sessions/${encodeURIComponent(sid.current)}`,
-        { title: renameText.trim() },
-        "PATCH",
+  function stopTurn() {
+    const cancel = cancellation.current;
+    cancel.requested = true;
+    setStopping(true);
+    setStatus("正在停止…");
+    if (
+      cancel.turnId &&
+      !cancel.sent &&
+      socket.current?.readyState === WebSocket.OPEN
+    ) {
+      cancel.sent = true;
+      socket.current.send(
+        JSON.stringify({
+          type: "cancel_turn",
+          protocol_version: "2.0",
+          turn_id: cancel.turnId,
+          command_id: `cancel_${Date.now()}`,
+        }),
       );
-      setTitle(renameText.trim());
-      setRename(false);
-    } catch (e) {
-      Alert.alert("未能改名", (e as Error).message);
     }
   }
   async function chooseDocument() {
@@ -190,8 +215,11 @@ export default function Chat() {
     }
     if (sending.current || (!resumeId && !(override || text).trim())) return;
     sending.current = true;
+    cancellation.current = { requested: false, sent: false, turnId: resumeId };
+    setStopping(false);
     setBusy(true);
     setError("");
+    setNotice("");
     setStatus("正在连接…");
     const prompt = (override || text).trim();
     const image = resumeId ? undefined : photo;
@@ -213,7 +241,9 @@ export default function Chat() {
       socket.current?.close();
       api.assertOpen();
       const transport = api.socketOptions();
-      const ws = new NativeSocket(transport.url, null, { headers: transport.headers });
+      const ws = new NativeSocket(transport.url, null, {
+        headers: transport.headers,
+      });
       api.onClose(() => ws.close());
       socket.current = ws;
       let terminal = false;
@@ -228,6 +258,7 @@ export default function Chat() {
         setReplyBusy(false);
         sending.current = false;
         setBusy(false);
+        setStopping(false);
         setStatus("");
         if (msg) setError(msg);
       };
@@ -244,6 +275,11 @@ export default function Chat() {
           return;
         }
         opened = true;
+        if (cancellation.current.requested && !resumeId) {
+          finish();
+          ws.close();
+          return;
+        }
         if (resumeId) {
           turn.current = resumeId;
           setStatus("正在恢复进度…");
@@ -274,6 +310,16 @@ export default function Chat() {
               prompt +
               (image ? "\n[已附题目照片]" : "") +
               (attached ? `\n[附件：${attached.name}]` : ""),
+            attachments: image
+              ? [
+                  {
+                    type: "image",
+                    base64: image.base64,
+                    filename: image.filename,
+                    mime_type: "image/jpeg",
+                  },
+                ]
+              : [],
           },
           { id: reply, role: "assistant", content: "" },
         ]);
@@ -326,9 +372,16 @@ export default function Chat() {
             message?: string;
           };
           if (!ack.accepted) {
+            if (ack.command_type === "cancel_turn") {
+              setStopping(false);
+              setNotice("这次讲解已结束，可以查看已有内容或继续提问。");
+              return;
+            }
             setError(ack.message || "这次操作未被接受，请刷新进度。");
             return;
           }
+          if (ack.command_type === "cancel_turn")
+            setStatus("已请求停止，正在保存进度…");
           if (ack.command_type === "submit_user_reply") {
             waitingRef.current = false;
             setWaiting(false);
@@ -353,7 +406,11 @@ export default function Chat() {
           sid.current = event.session_id;
           setSessionId(event.session_id);
         }
-        if (event.turn_id) turn.current = event.turn_id;
+        if (event.turn_id) {
+          turn.current = event.turn_id;
+          cancellation.current.turnId = event.turn_id;
+          if (cancellation.current.requested) stopTurn();
+        }
         if (!["content", "thinking"].includes(event.type)) {
           eventTrace = [...eventTrace, event];
           setMessages((v) =>
@@ -395,8 +452,17 @@ export default function Chat() {
           if (event.content)
             setWaitingCard((v) => v || { question: event.content });
         }
-        if (event.type === "error")
-          finish(event.content || "这次讲解未完成，请查看学习进度后重试。");
+        if (event.type === "error") {
+          if (cancelledTurn(event)) {
+            finish();
+            setError("");
+            setNotice("已停止生成，可以继续提问。");
+            setWaiting(false);
+            waitingRef.current = false;
+            setWaitingCard(null);
+          } else
+            finish(event.content || "这次讲解未完成，请查看学习进度后重试。");
+        }
         if (event.type === "done") {
           finish();
           setWaiting(false);
@@ -435,6 +501,7 @@ export default function Chat() {
         setError((e as Error).message);
         sending.current = false;
         setBusy(false);
+        setStopping(false);
         setStatus("");
       }
     }
@@ -528,18 +595,17 @@ export default function Chat() {
       setError((e as Error).message);
     }
   }
-  function saveQuestion() {
-    const lastUser = [...messages].reverse().find((v) => v.role === "user");
-    const lastReply = [...messages]
-      .reverse()
-      .find((v) => v.role === "assistant");
+  function saveQuestion(messageId?: string) {
     if (api) {
-      questionDraft.set(api, {
-        question: lastUser?.content || "",
-        explanation: lastReply?.content || "",
-        session_id: sid.current || undefined,
-      });
-      router.push("/question/new");
+      try {
+        questionDraft.set(
+          api,
+          photoQuestionDraft(messages, sid.current, messageId),
+        );
+        router.push("/question/new");
+      } catch (e) {
+        Alert.alert("还不能记录", (e as Error).message);
+      }
     }
   }
   return (
@@ -573,7 +639,7 @@ export default function Chat() {
                           },
                         ]
                       : []),
-                    { text: "加入错题本", onPress: saveQuestion },
+                    { text: "加入错题本", onPress: () => saveQuestion() },
                     { text: "学习方式", onPress: () => setOptionsOpen(true) },
                     {
                       text: "查看学习过程",
@@ -610,128 +676,164 @@ export default function Chat() {
               icon="chatbubbles-outline"
             />
           )}
-          {messages.map((m, i) => (
-            <View
-              key={m.id || String(i)}
-              style={[
-                s.card,
-                {
-                  padding: 17,
-                  backgroundColor: m.role === "user" ? C.pale : C.white,
-                  alignSelf: m.role === "user" ? "flex-end" : "flex-start",
-                  maxWidth: "95%",
-                  width: m.role === "assistant" ? "95%" : undefined,
-                  minWidth: 100,
-                },
-              ]}
-            >
-              <Text style={[s.muted, { marginBottom: 7 }]}>
-                {m.role === "user" ? "我" : "DeepTutor"}
-              </Text>
-              {m.role === "user" ? (
-                <Prose text={m.content} />
-              ) : (
-                dialogueParts(
-                  displayBody(m) || (busy ? "正在思考…" : ""),
-                  m.events,
-                ).map((part, index) => (
-                  <View
-                    key={index}
-                    style={
-                      part.role === "user"
-                        ? {
-                            backgroundColor: C.pale,
-                            padding: 12,
-                            borderRadius: 12,
-                            marginVertical: 10,
-                          }
-                        : undefined
-                    }
-                  >
-                    {part.role === "user" ? (
-                      <Text style={s.label}>我的回答</Text>
-                    ) : null}
-                    <Prose text={part.text} />
-                  </View>
-                ))
-              )}
-              {(m.events || [])
-                .filter((e) => e.type === "tool_result" || e.type === "result")
-                .map((e, index) => {
-                  const meta = object(e.metadata);
-                  const tool = object(meta.tool_metadata);
-                  const mastery =
-                    tool.mastery_question || meta.mastery_question;
-                  const grade = object(
-                    tool.mastery_grade || meta.mastery_grade,
-                  );
-                  const payload =
-                    mastery ||
-                    tool.visualization ||
-                    meta.visualization ||
-                    tool.result ||
-                    meta.result ||
-                    meta.data ||
-                    (e.type === "result"
-                      ? { ...meta, response: undefined }
-                      : undefined);
-                  return (
-                    <View key={index}>
-                      {payload ? (
-                        <Content
-                          value={payload}
-                          onAnswer={
-                            mastery
-                              ? async (q, answer) => {
-                                  if (sending.current)
-                                    throw new Error("请等待当前讲解完成。");
-                                  await send(answer, {
-                                    mastery_answer: {
-                                      question_id: string(q.question_id),
-                                      text: answer,
-                                    },
-                                  });
-                                }
-                              : async (q, answer) => {
-                                  if (sending.current)
-                                    throw new Error("请等待当前讲解完成。");
-                                  await send(
-                                    `我的答案是：${answer}。请帮我检查思路并讲解。`,
-                                    {
-                                      capability: "deep_question",
-                                      config: {},
-                                      followup_question_context: q,
-                                    },
-                                  );
-                                }
-                          }
+          {messages
+            .filter((m, i) =>
+              visibleMessage(m, busy && i === messages.length - 1),
+            )
+            .map((m, i) => (
+              <View
+                key={m.id || String(i)}
+                style={[
+                  s.card,
+                  {
+                    padding: 17,
+                    backgroundColor: m.role === "user" ? C.pale : C.white,
+                    alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+                    maxWidth: "95%",
+                    width:
+                      m.role === "assistant" ||
+                      m.attachments?.some((a) => a.type === "image")
+                        ? "95%"
+                        : undefined,
+                    minWidth: 100,
+                  },
+                ]}
+              >
+                <Text style={[s.muted, { marginBottom: 7 }]}>
+                  {m.role === "user" ? "我" : "DeepTutor"}
+                </Text>
+                {m.role === "user" &&
+                  m.attachments
+                    ?.filter((a) => a.type === "image")
+                    .map((a, index) =>
+                      a.url ? (
+                        <PrivateImage key={index} path={a.url} />
+                      ) : a.base64 ? (
+                        <Image
+                          key={index}
+                          source={{
+                            uri: `data:${a.mime_type || "image/jpeg"};base64,${a.base64}`,
+                          }}
+                          style={{ width: 230, height: 180 }}
+                          resizeMode="contain"
                         />
+                      ) : null,
+                    )}
+                {m.role === "user" &&
+                m.attachments?.some((a) => a.type === "image") ? (
+                  <SmallAction
+                    title="记录这道拍照题"
+                    onPress={() => saveQuestion(m.id)}
+                  />
+                ) : null}
+                {m.role === "user" ? (
+                  <Prose text={m.content} />
+                ) : (
+                  dialogueParts(
+                    displayBody(m) || (busy ? "正在思考…" : ""),
+                    m.events,
+                  ).map((part, index) => (
+                    <View
+                      key={index}
+                      style={
+                        part.role === "user"
+                          ? {
+                              backgroundColor: C.pale,
+                              padding: 12,
+                              borderRadius: 12,
+                              marginVertical: 10,
+                            }
+                          : undefined
+                      }
+                    >
+                      {part.role === "user" ? (
+                        <Text style={s.label}>我的回答</Text>
                       ) : null}
-                      {Object.keys(grade).length ? (
-                        <View style={s.notice}>
-                          <Text style={s.h2}>
-                            {grade.is_correct === true
-                              ? "理解正确"
-                              : grade.is_correct === false
-                                ? "再想一想"
-                                : "需要进一步说明"}
-                          </Text>
-                          <Prose text={grade.feedback || grade.explanation} />
-                        </View>
-                      ) : null}
-                      {traceOpen ? (
-                        <>
-                          <Text style={s.muted}>
-                            {e.type === "tool_result" ? "处理结果" : "学习成果"}
-                          </Text>
-                          <Prose text={e.content} />
-                        </>
-                      ) : null}
+                      <Prose text={part.text} />
                     </View>
-                  );
-                })}
-            </View>
-          ))}
+                  ))
+                )}
+                {(m.events || [])
+                  .filter(
+                    (e) => e.type === "tool_result" || e.type === "result",
+                  )
+                  .map((e, index) => {
+                    const meta = object(e.metadata);
+                    const tool = object(meta.tool_metadata);
+                    const mastery =
+                      tool.mastery_question || meta.mastery_question;
+                    const grade = object(
+                      tool.mastery_grade || meta.mastery_grade,
+                    );
+                    const payload =
+                      mastery ||
+                      tool.visualization ||
+                      meta.visualization ||
+                      tool.result ||
+                      meta.result ||
+                      meta.data ||
+                      (e.type === "result"
+                        ? { ...meta, response: undefined }
+                        : undefined);
+                    return (
+                      <View key={index}>
+                        {payload ? (
+                          <Content
+                            value={payload}
+                            onAnswer={
+                              mastery
+                                ? async (q, answer) => {
+                                    if (sending.current)
+                                      throw new Error("请等待当前讲解完成。");
+                                    await send(answer, {
+                                      mastery_answer: {
+                                        question_id: string(q.question_id),
+                                        text: answer,
+                                      },
+                                    });
+                                  }
+                                : async (q, answer) => {
+                                    if (sending.current)
+                                      throw new Error("请等待当前讲解完成。");
+                                    await send(
+                                      `我的答案是：${answer}。请帮我检查思路并讲解。`,
+                                      {
+                                        capability: "deep_question",
+                                        config: {},
+                                        followup_question_context: q,
+                                      },
+                                    );
+                                  }
+                            }
+                          />
+                        ) : null}
+                        {Object.keys(grade).length ? (
+                          <View style={s.notice}>
+                            <Text style={s.h2}>
+                              {grade.is_correct === true
+                                ? "理解正确"
+                                : grade.is_correct === false
+                                  ? "再想一想"
+                                  : "需要进一步说明"}
+                            </Text>
+                            <Prose text={grade.feedback || grade.explanation} />
+                          </View>
+                        ) : null}
+                        {traceOpen ? (
+                          <>
+                            <Text style={s.muted}>
+                              {e.type === "tool_result"
+                                ? "处理结果"
+                                : "学习成果"}
+                            </Text>
+                            <Prose text={e.content} />
+                          </>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+              </View>
+            ))}
           {waitingCard ? (
             <View style={[s.card, { gap: 12 }]}>
               <Text style={s.h2}>轮到你想一想</Text>
@@ -780,6 +882,7 @@ export default function Chat() {
               />
             </View>
           ) : null}
+          {notice ? <Text style={s.muted}>{notice}</Text> : null}
           {error ? (
             <Text
               accessibilityRole="alert"
@@ -862,24 +965,11 @@ export default function Chat() {
                 marginBottom: 10,
               }}
             >
-              <Text style={s.muted}>{status}</Text>
-              <Pressable
-                onPress={() => {
-                  if (
-                    turn.current &&
-                    socket.current?.readyState === WebSocket.OPEN
-                  )
-                    socket.current.send(
-                      JSON.stringify({
-                        type: "cancel_turn",
-                        protocol_version: "2.0",
-                        turn_id: turn.current,
-                        command_id: `cancel_${Date.now()}`,
-                      }),
-                    );
-                }}
-              >
-                <Text style={s.link}>停止</Text>
+              <Text style={s.muted}>
+                {stopping ? "正在停止，请稍候…" : status}
+              </Text>
+              <Pressable disabled={stopping} onPress={stopTurn}>
+                <Text style={s.link}>{stopping ? "停止中" : "停止"}</Text>
               </Pressable>
             </View>
           )}
@@ -925,39 +1015,30 @@ export default function Chat() {
           onClose={() => setOptionsOpen(false)}
         />
       ) : null}
-      <Modal
-        visible={rename}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setRename(false)}
-      >
-        <KeyboardAvoidingView
-          behavior="padding"
-          automaticOffset
-          style={{ flex: 1, backgroundColor: "#14332D66" }}
-        >
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-            contentContainerStyle={{
-              flexGrow: 1,
-              justifyContent: "center",
-              padding: 28,
-            }}
-          >
-            <View style={[s.card, { gap: 18 }]}>
-              <Field
-                label="对话标题"
-                value={renameText}
-                onChangeText={setRenameText}
-                maxLength={100}
-              />
-              <Button title="保存标题" onPress={() => void saveTitle()} />
-              <Button title="取消" secondary onPress={() => setRename(false)} />
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </Modal>
+      {rename ? (
+        <Editor
+          title="修改对话标题"
+          fields={[
+            {
+              key: "title",
+              label: "对话标题",
+              value: renameText,
+              required: true,
+            },
+          ]}
+          onClose={() => setRename(false)}
+          onSave={async (values) => {
+            if (!api || !sid.current) return;
+            const title = values.title.trim().slice(0, 100);
+            await api.json(
+              `/api/sessions/${encodeURIComponent(sid.current)}`,
+              { title },
+              "PATCH",
+            );
+            setTitle(title);
+          }}
+        />
+      ) : null}
     </Page>
   );
 }

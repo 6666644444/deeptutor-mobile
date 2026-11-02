@@ -12,7 +12,9 @@ module.exports = (config) => {
 __attribute__((constructor)) static void DTMInstallWebSocketPolicy(void) {
   RCTSetCustomSRWebSocketProvider(^SRWebSocket *(NSURLRequest *request) {
     NSMutableURLRequest *isolated = [request mutableCopy];
-    [isolated setValue:nil forHTTPHeaderField:@"Cookie"];
+    NSString *session = [request valueForHTTPHeaderField:@"X-DeepTutor-Session"];
+    [isolated setValue:nil forHTTPHeaderField:@"X-DeepTutor-Session"];
+    [isolated setValue:session.length ? [@"dt_token=" stringByAppendingString:session] : nil forHTTPHeaderField:@"Cookie"];
     isolated.HTTPShouldHandleCookies = NO;
     return [[SRWebSocket alloc] initWithURLRequest:isolated];
   });
@@ -22,7 +24,12 @@ __attribute__((constructor)) static void DTMInstallWebSocketPolicy(void) {
     return result;
   });
   config = withMainApplication(config, result => {
-    const marker = "// DeepTutor isolated WebSocket transport";
+    const marker = "// DeepTutor isolated WebSocket transport v2";
+    // Upgrade previously generated applications as well as fresh prebuilds.
+    result.modResults.contents = result.modResults.contents.replace(
+      /\s*\/\/ DeepTutor isolated WebSocket transport\n[\s\S]*?chain\.proceed\(chain\.request\(\)\.newBuilder\(\)\.removeHeader\("Cookie"\)\.build\(\)\)\n\s*}\n\s*}/,
+      "",
+    );
     if (!result.modResults.contents.includes(marker)) {
       result.modResults.contents = result.modResults.contents.replace("super.onCreate()", `super.onCreate()
     ${marker}
@@ -30,7 +37,11 @@ __attribute__((constructor)) static void DTMInstallWebSocketPolicy(void) {
       builder.followRedirects(false).followSslRedirects(false)
         .cookieJar(okhttp3.CookieJar.NO_COOKIES)
         .addInterceptor { chain ->
-          chain.proceed(chain.request().newBuilder().removeHeader("Cookie").build())
+          val request = chain.request()
+          val session = request.header("X-DeepTutor-Session").orEmpty()
+          val isolated = request.newBuilder().removeHeader("Cookie").removeHeader("X-DeepTutor-Session")
+          if (session.isNotEmpty()) isolated.header("Cookie", "dt_token=" + session)
+          chain.proceed(isolated.build())
         }
     }`);
     }

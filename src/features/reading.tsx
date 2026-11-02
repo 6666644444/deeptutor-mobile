@@ -21,6 +21,7 @@ import {
 import { Pdf } from "./pdf";
 import { ExportFile } from "./export";
 import { Content } from "./content";
+import { materialText } from "../lib/learning-records";
 type Material = {
   material_id: string;
   title: string;
@@ -550,16 +551,27 @@ function Reader({ id, workspace }: { id: string; workspace: string }) {
       <ResourceState resource={r} />
       {m ? (
         <>
-          <ExportFile
-            path={path + "/raw"}
-            filename={m.filename || "学习资料.pdf"}
-            mime={
-              m.filename?.toLowerCase().endsWith(".pdf")
-                ? "application/pdf"
-                : "application/octet-stream"
-            }
-            title="保存原文件"
-          />
+          {m.has_raw_view ? (
+            <ExportFile
+              path={path + "/raw"}
+              filename={m.filename || "学习资料.pdf"}
+              mime={
+                m.filename?.toLowerCase().endsWith(".pdf")
+                  ? "application/pdf"
+                  : "application/octet-stream"
+              }
+              title="保存原文件"
+            />
+          ) : (
+            <ExportFile
+              load={(client, signal) =>
+                materialText(client, path, m.unit_count, m.revision, signal)
+              }
+              filename={`${(m.filename || m.title || "学习资料").replace(/\.[^.]+$/, "")}.txt`}
+              mime="text/plain"
+              title="导出全文文本"
+            />
+          )}
           <SmallAction
             title="删除这份资料"
             onPress={() =>

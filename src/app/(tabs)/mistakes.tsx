@@ -1,10 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  QUESTION_PAGE_SIZE,
+  questionListPath,
+  documentPreview,
+} from "../../lib/learning-records";
 import { Pressable, RefreshControl, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { useResource } from "../../lib/resources";
 import { Question } from "../../lib/client";
 import {
   C,
+  Button,
   Empty,
   Failure,
   FormScrollView,
@@ -17,16 +23,16 @@ import {
 export default function Mistakes() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
-  const [limit, setLimit] = useState(50);
+  const [query, setQuery] = useState({ search: "", filter: "all", page: 0 });
+  useEffect(() => {
+    const timer = setTimeout(() => setQuery({ search, filter, page: 0 }), 300);
+    return () => clearTimeout(timer);
+  }, [search, filter]);
   const q = useResource<{ items: Question[]; total: number }>(
-    `/api/question-notebook/entries?mistakes_only=true&limit=${limit}${filter === "todo" ? "&resolved=false" : filter === "star" ? "&bookmarked=true" : ""}`,
+    questionListPath(query.search, query.filter, query.page),
   );
-  const items =
-    q.data?.items.filter((v) =>
-      (v.question + (v.categories || []).map((c) => c.name).join(" "))
-        .toLowerCase()
-        .includes(search.toLowerCase()),
-    ) || [];
+  const pending = search !== query.search || filter !== query.filter;
+  const items = pending ? [] : q.data?.items || [];
   return (
     <Page scroll={false}>
       <FormScrollView
@@ -66,7 +72,8 @@ export default function Mistakes() {
           <Icon name="search-outline" size={19} color={C.muted} />
           <TextInput
             accessibilityLabel="搜索错题"
-            placeholder="搜索题目或分类"
+            placeholder="搜索全部错题"
+            maxLength={200}
             value={search}
             onChangeText={setSearch}
             style={{ flex: 1, padding: 14, color: C.ink, fontSize: 15 }}
@@ -100,8 +107,8 @@ export default function Mistakes() {
           ))}
         </View>
         {q.error ? <Failure message={q.error} retry={q.reload} /> : null}
-        {q.loading && !q.data ? <Loading /> : null}
-        {!q.loading && !q.error && !items.length ? (
+        {pending || (q.loading && !q.data) ? <Loading /> : null}
+        {!pending && !q.loading && !q.error && !items.length ? (
           <Empty
             title={search ? "没有找到这道题" : "这里暂时还没有错题"}
             detail="做错不是坏事，记录下来就是进步的开始。"
@@ -131,10 +138,15 @@ export default function Mistakes() {
               {item.bookmarked && (
                 <Icon name="star" size={16} color={C.orange} />
               )}
-              <Text style={s.muted}>{String(index + 1).padStart(2, "0")}</Text>
+              <Text style={s.muted}>
+                {String(query.page * QUESTION_PAGE_SIZE + index + 1).padStart(
+                  2,
+                  "0",
+                )}
+              </Text>
             </View>
             <Text style={s.text} numberOfLines={3}>
-              {item.question}
+              {documentPreview(item.question)}
             </Text>
             <View
               style={{ flexDirection: "row", justifyContent: "space-between" }}
@@ -144,19 +156,30 @@ export default function Mistakes() {
             </View>
           </Pressable>
         ))}
-        {(q.data?.total || 0) > limit && limit < 200 ? (
-          <Pressable
-            onPress={() => setLimit((v) => Math.min(v + 50, 200))}
-            style={{ padding: 18 }}
-          >
-            <Text style={[s.link, { textAlign: "center" }]}>加载更多</Text>
-          </Pressable>
-        ) : null}
-        {(q.data?.total || 0) > 200 ? (
-          <Text style={s.muted}>
-            这里显示最近 200
-            道题；更早的题目可在「全部功能」→「练习与出题」中查看。
-          </Text>
+        {(q.data?.total || 0) > QUESTION_PAGE_SIZE || query.page > 0 ? (
+          <View style={{ gap: 12, paddingVertical: 18 }}>
+            <Text style={s.muted}>
+              第 {query.page + 1} 页 · 共 {q.data?.total ?? "…"} 道题
+            </Text>
+            <Button
+              title="上一页"
+              secondary
+              disabled={pending || q.loading || query.page === 0}
+              onPress={() =>
+                setQuery((v) => ({ ...v, page: Math.max(0, v.page - 1) }))
+              }
+            />
+            <Button
+              title="下一页"
+              secondary
+              disabled={
+                pending ||
+                q.loading ||
+                (query.page + 1) * QUESTION_PAGE_SIZE >= (q.data?.total || 0)
+              }
+              onPress={() => setQuery((v) => ({ ...v, page: v.page + 1 }))}
+            />
+          </View>
         ) : null}
       </FormScrollView>
     </Page>

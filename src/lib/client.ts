@@ -1,5 +1,6 @@
 import { isPrivateHost, safePath, scopedKey, type Connection } from "./connection.ts";
 import { questionEntries } from "./question-entries.ts";
+import { learningOptionsResponse } from "./learning-options.ts";
 export type User = { user_id: string; username: string; role: string };
 export type Credentials = { username: string; password: string };
 export type SavedLogin = Credentials & { origin: string; user: User; token: string; workspaceId?: string };
@@ -144,7 +145,8 @@ export class TutorClient {
     if (!result.unauthorized) {
       if (path.split("?")[0] === "/api/question-notebook/entries" && (!init.method || init.method === "GET"))
         return questionEntries(result.data) as T;
-      return result.data;
+      return (!init.method || init.method === "GET")
+        ? learningOptionsResponse(path, result.data) as T : result.data;
     }
     if (retry && this.mode === "account") {
       await this.renew();
@@ -172,7 +174,11 @@ export class TutorClient {
   socketOptions() {
     this.assertOpen();
     return { url: this.config.origin.replace(/^http/, "ws") + "/ws", headers: {
-      Origin: this.config.origin, Cookie: "", ...(this.token ? { Authorization: `Bearer ${this.token}` } : {}),
+      // DeepTutor authenticates WebSockets with dt_token, not REST's Bearer header.
+      // Explicitly override the native cookie jar with this selected client's session.
+      Origin: this.config.origin, Cookie: this.token ? `dt_token=${this.token}` : "",
+      // Native policy uses this explicit value and strips the marker before sending.
+      "X-DeepTutor-Session": this.token,
       ...(this.workspaceId ? { "X-DeepTutor-Workspace": this.workspaceId } : {}),
     } };
   }
@@ -185,7 +191,10 @@ export class TutorClient {
   }
 }
 export type Question = {
+  [key: string]: unknown;
   id: number;
+  question_id?: string;
+  origin_ref?: string;
   question: string;
   correct_answer: string;
   explanation: string;
@@ -194,7 +203,7 @@ export type Question = {
   bookmarked: boolean;
   categories?: { id: number; name: string }[];
   options?: Record<string, string>;
-  user_answer_images?: { url: string }[];
+  user_answer_images?: { id?: string; url: string; filename?: string; mime_type?: string }[];
 };
 export type Session = {
   id: string;
@@ -202,10 +211,11 @@ export type Session = {
   message_count: number;
   updated_at: string | number;
   content_workspace_id?: string;
-  messages?: { id: string; role: string; content: string; events?: TurnEvent[] }[];
+  messages?: { id: string; role: string; content: string; events?: TurnEvent[]; attachments?: ChatAttachment[] }[];
   preferences?: Record<string, unknown>;
   active_turn?: { id: string; status: string; last_seq: number };
 };
+export type ChatAttachment = { type: string; url?: string; base64?: string; filename?: string; mime_type?: string; id?: string };
 export type Material = {
   material_id: string;
   title: string;

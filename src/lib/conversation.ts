@@ -1,4 +1,11 @@
 import type { TurnEvent } from "./client";
+export function visibleMessage(message: { role: string; content: string; events?: TurnEvent[]; attachments?: unknown[] }, active = false) {
+  return message.role !== "assistant" || active || !!message.content.trim() || !!message.attachments?.length ||
+    !!message.events?.some(e => ["result", "tool_result"].includes(e.type) && e.metadata && Object.keys(e.metadata).length > 0);
+}
+export function cancelledTurn(event: TurnEvent) {
+  return event.type === "error" && /^Turn cancel(?:l)?ed\.?$/i.test(event.content?.trim() || "");
+}
 export function conversationTitle(title:string){return /^(New conversation|New chat|New reading conversation)$/i.test(title)?"学习对话":title||"学习对话";}
 export function dialogueParts(content:string,events:TurnEvent[]=[]):{role:"assistant"|"user";text:string}[]{
   const parts:{role:"assistant"|"user";text:string}[]=[];let offset=0;

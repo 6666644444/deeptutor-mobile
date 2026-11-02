@@ -87,10 +87,10 @@ npm run export:source -- --output-dir <交付目录>
 
 导出仅包含受检文本源码，附文件清单与 SHA-256，不含 Git 历史、生成工程、截图、安装包、环境文件或签名材料。
 
-## Native preview 0.2
+## 原生模块与版本
 
-Run `npm ci` before all builds: its postinstall generates offline renderer modules from the lockfile. They are intentionally absent from Git and the source archive. To regenerate after dependency changes, run `npm run bundle:content`. Native PDF/share modules live under `modules/`; their platform subdirectories are source and must remain in version control. Only root-level generated `android/` and `ios/` projects and module build outputs are excluded.
+`npm ci` 会从锁定依赖生成离线公式/图表资源；需要重新生成时运行 `npm run bundle:content`。PDF 和分享模块源码位于 `modules/`。根目录的 `android/`、`ios/` 及模块构建产物由工具生成，不纳入源码包。
 
-The iOS share extension uses an App Group derived from the configured bundle identifier. Simulator ad-hoc builds do not establish physical-device provisioning readiness. A device release needs the publisher's own App Group/provisioning configuration; no team identifier, certificate or private deployment is supplied here.
+iOS 分享扩展的 App Group 根据 bundle identifier 生成。真机发行需配置自己的 App Group、证书和 provisioning；模拟器构建通过不能替代真机验证。
 
-This preview release contains source only. Local Debug APKs are validation artifacts, not a public signed release, and require Metro. The independent public app is version 0.2.0 (Android versionCode 2); the repository pre-release tag is v0.2.0-preview.1.
+当前源码标签为 `v0.2.0-preview.2`，应用版本为 0.2.0（Android versionCode 2）。本地测试包不作为公开安装包发布。

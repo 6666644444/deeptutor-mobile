@@ -1,5 +1,15 @@
 import { useState, useRef } from "react";
-import { Alert, Modal, Pressable, Text, View } from "react-native";
+import {
+  Alert,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  Text,
+  View,
+} from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import {
   Button,
@@ -122,6 +132,35 @@ export type InputSpec = {
   number?: boolean;
   options?: { value: string; label: string }[];
 };
+// Keep one KeyboardProvider at the app root. Multiple providers overwrite the
+// native Modal's dismissal listener and leave the main keyboard callback suspended.
+// Resize the modal form independently using native keyboard frame notifications.
+export function FormModal({
+  children,
+  onClose,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <Modal
+      animationType="slide"
+      onRequestClose={() => {
+        if (Keyboard.isVisible()) Keyboard.dismiss();
+        else onClose();
+      }}
+    >
+      <SafeAreaProvider>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          {children}
+        </KeyboardAvoidingView>
+      </SafeAreaProvider>
+    </Modal>
+  );
+}
 export function Editor({
   title,
   fields,
@@ -140,7 +179,7 @@ export function Editor({
   );
   const action = useAction();
   return (
-    <Modal animationType="slide" onRequestClose={onClose}>
+    <FormModal onClose={onClose}>
       <Page>
         <Heading
           title={title}
@@ -184,7 +223,7 @@ export function Editor({
           />
         </View>
       </Page>
-    </Modal>
+    </FormModal>
   );
 }
 export function confirmDelete(title: string, action: () => Promise<void>) {

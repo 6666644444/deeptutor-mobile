@@ -4,6 +4,7 @@ import { Alert, Text, View } from "react-native";
 import { router } from "expo-router";
 import { useAuth } from "../lib/auth";
 import { useResource } from "../lib/resources";
+import { favoriteMetadata } from "../lib/learning-records";
 import { Button, Heading, Page, Row, Section, s } from "../ui";
 import {
   Actions,
@@ -16,6 +17,7 @@ import {
   confirmDelete,
   enc,
   feature,
+  useAction,
 } from "./common";
 type RecordItem = {
   id: string;
@@ -45,6 +47,7 @@ export function Notebooks({ id = "" }: { id?: string }) {
     move: boolean;
   } | null>(null);
   const n = detail.data;
+  const copyAction = useAction();
   return (
     <Page>
       <Heading
@@ -101,7 +104,28 @@ export function Notebooks({ id = "" }: { id?: string }) {
               <Prose text={record.user_query} />
               <Prose text={record.output} />
               <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
-                <SmallAction title="编辑" onPress={() => setEditor(record)} />
+                <SmallAction
+                  title="修改标题与摘要"
+                  onPress={() => setEditor(record)}
+                />
+                <SmallAction
+                  title="另存为可编辑笔记"
+                  onPress={() => {
+                    if (!api) return;
+                    void copyAction.run(async () => {
+                      const document = await api.json<{ id: string }>(
+                        "/api/documents",
+                        {
+                          title: record.title || "收藏笔记",
+                          content: [record.user_query, record.output]
+                            .filter(Boolean)
+                            .join("\n\n"),
+                        },
+                      );
+                      feature("writing", document.id);
+                    });
+                  }}
+                />
                 <SmallAction
                   title="复制到…"
                   onPress={() => setTransfer({ record, move: false })}
@@ -167,11 +191,17 @@ export function Notebooks({ id = "" }: { id?: string }) {
           <SmallAction title="取消" onPress={() => setTransfer(null)} />
         </View>
       ) : null}
+      {copyAction.busy ? (
+        <Text style={s.muted}>正在创建可编辑笔记…</Text>
+      ) : null}
+      {copyAction.error ? (
+        <Text style={s.muted}>{copyAction.error}</Text>
+      ) : null}
       {editor ? (
         <Editor
           title={
             typeof editor === "object"
-              ? "编辑笔记"
+              ? "修改标题与摘要"
               : editor === "record"
                 ? "添加笔记"
                 : editor === "edit"
@@ -201,13 +231,17 @@ export function Notebooks({ id = "" }: { id?: string }) {
                     value: typeof editor === "object" ? editor.title : "",
                     required: true,
                   },
-                  {
-                    key: "output",
-                    label: "笔记内容",
-                    value: typeof editor === "object" ? editor.output : "",
-                    multiline: true,
-                    required: true,
-                  },
+                  ...(typeof editor === "object"
+                    ? []
+                    : [
+                        {
+                          key: "output",
+                          label: "笔记内容",
+                          value: "",
+                          multiline: true,
+                          required: true,
+                        },
+                      ]),
                   {
                     key: "summary",
                     label: "摘要",
@@ -241,7 +275,7 @@ export function Notebooks({ id = "" }: { id?: string }) {
             } else {
               await api.json(
                 `/api/notebooks/${enc(id)}/records/${enc(editor.id)}`,
-                values,
+                favoriteMetadata(values),
                 "PUT",
               );
               await detail.reload();

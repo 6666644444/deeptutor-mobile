@@ -85,7 +85,9 @@ for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort +
     res.end(`<!doctype html><html lang="zh-CN"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="padding:24px;font:20px system-ui"><h1>虚拟协议测试服务</h1><p>${label}</p><p>当前身份：${user}</p><p>这是虚拟服务，不是 DeepTutor 模型。</p><a href="/api/fixture-file">测试文件</a></body></html>`);
   });
   server.on('upgrade', (req, socket) => {
-    const user = userFor(req); if (!user || req.url !== '/ws') { socket.end('HTTP/1.1 401 Unauthorized\r\n\r\n'); return; }
+    // Match the real WS endpoint: a REST Bearer header alone is not accepted.
+    const user = enabled ? tokens.get(/(?:^|;\s*)dt_token=([^;]+)/.exec(req.headers.cookie || '')?.[1]) : 'local-admin';
+    if (!user || req.url !== '/ws') { socket.end('HTTP/1.1 401 Unauthorized\r\n\r\n'); return; }
     const accept = createHash('sha1').update(req.headers['sec-websocket-key'] + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
     socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
     const send = value => { const data = Buffer.from(JSON.stringify(value)); const header = data.length < 126 ? Buffer.from([129, data.length]) : Buffer.from([129, 126, data.length >> 8, data.length & 255]); socket.write(Buffer.concat([header, data])); };

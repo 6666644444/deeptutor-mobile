@@ -1,9 +1,21 @@
 import { useState } from "react";
-import { Modal, Text, View } from "react-native";
+import { Text, View } from "react-native";
 import { useResource } from "../lib/resources";
 import { useAuth } from "../lib/auth";
+import type {
+  Capability,
+  KnowledgeBase,
+  Persona,
+} from "../lib/learning-options";
 import { Button, Field, Heading, Page, Row, Section, s } from "../ui";
-import { Actions, Chips, ResourceState, ask, feature } from "./common";
+import {
+  Actions,
+  Chips,
+  FormModal,
+  ResourceState,
+  ask,
+  feature,
+} from "./common";
 export const capabilityLabels: Record<string, string> = {
   chat: "聊天与提问",
   ask_questions: "互动问答",
@@ -46,11 +58,14 @@ export const defaultOptions = (capability = "chat"): ChatOptions => ({
   config: { ...defaults[capability] },
   knowledge_bases: [],
 });
-type Capability = {
-  id: string;
-  available: boolean;
-  config_schema: { properties: Record<string, unknown> };
-};
+function NoOptions({ message, retry }: { message: string; retry: () => void }) {
+  return (
+    <View style={[s.notice, { gap: 12 }]}>
+      <Text style={s.muted}>{message}</Text>
+      <Button title="重新加载" secondary onPress={retry} />
+    </View>
+  );
+}
 export function CapabilityOptions({
   value,
   onChange,
@@ -64,12 +79,16 @@ export function CapabilityOptions({
   const r = useResource<{ capabilities: Capability[] }>(
     "/api/capabilities/registered",
   );
-  const personas = useResource<{ personas: { name: string }[] }>(
-    "/api/personas",
-  );
-  const kb = useResource<{ name: string; id?: string }[]>(
-    "/api/knowledge-bases",
-  );
+  const personas = useResource<{ personas: Persona[] }>("/api/personas");
+  const kb = useResource<KnowledgeBase[]>("/api/knowledge-bases");
+  const available = r.data?.capabilities.filter((c) => c.available) || [];
+  const canSave =
+    !r.loading &&
+    !r.error &&
+    !personas.loading &&
+    !personas.error &&
+    available.some((c) => c.id === draft.capability) &&
+    !!personas.data?.personas.some((p) => p.name === draft.persona);
   function cfg(key: string, v: unknown) {
     setDraft((d) => ({ ...d, config: { ...d.config, [key]: v } }));
   }
@@ -86,31 +105,42 @@ export function CapabilityOptions({
     </View>
   );
   return (
-    <Modal animationType="slide" onRequestClose={onClose}>
+    <FormModal onClose={onClose}>
       <Page>
         <Heading
           title="这次怎么学"
           right={
-            <Button
-              title="完成"
-              onPress={() => {
-                onChange(draft);
-                onClose();
-              }}
-            />
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <Button title="取消" secondary onPress={onClose} />
+              <Button
+                title="完成"
+                disabled={!canSave}
+                onPress={() => {
+                  onChange(draft);
+                  onClose();
+                }}
+              />
+            </View>
           }
         />
         <Section title="交流方式" />
+        <ResourceState resource={personas} />
         <Chips
           value={draft.persona}
           onChange={(persona) => setDraft((d) => ({ ...d, persona }))}
-          items={(
-            personas.data?.personas || [{ name: "teacher" }, { name: "peer" }]
-          ).map((p) => ({
+          items={(personas.data?.personas || []).map((p) => ({
             value: p.name,
             label: personaLabels[p.name] || p.name,
           }))}
         />
+        {!personas.loading &&
+        !personas.error &&
+        !personas.data?.personas.length ? (
+          <NoOptions
+            message="当前服务尚未提供交流方式，请检查服务连接或稍后重试。"
+            retry={personas.reload}
+          />
+        ) : null}
         <Section title="学习能力" />
         <ResourceState resource={r} />
         <Chips
@@ -122,15 +152,28 @@ export function CapabilityOptions({
               knowledge_bases: d.knowledge_bases,
             }))
           }
-          items={
-            r.data?.capabilities
-              .filter((c) => c.available)
-              .map((c) => ({
-                value: c.id,
-                label: capabilityLabels[c.id] || c.id,
-              })) || []
-          }
+          items={available.map((c) => ({
+            value: c.id,
+            label: capabilityLabels[c.id] || c.id,
+          }))}
         />
+        {!r.loading && !r.error && !available.length ? (
+          <NoOptions
+            message="当前服务没有可用的学习能力，请检查服务连接及配置。"
+            retry={r.reload}
+          />
+        ) : null}
+        {!!available.length &&
+        !!personas.data?.personas.length &&
+        !r.loading &&
+        !personas.loading &&
+        !r.error &&
+        !personas.error &&
+        !canSave ? (
+          <Text style={s.muted}>
+            原来的选项已不可用，请重新选择交流方式和学习能力。
+          </Text>
+        ) : null}
         {draft.capability === "deep_question" ? (
           <View style={{ gap: 15 }}>
             {choice("mode", "出题方式", [
@@ -229,6 +272,12 @@ export function CapabilityOptions({
         ) : null}
         <Section title="参考知识库" />
         <Text style={s.muted}>可选择多份教材作为提问依据。</Text>
+        <ResourceState resource={kb} />
+        {!kb.loading && !kb.error && !kb.data?.length ? (
+          <Text style={[s.muted, { marginVertical: 12 }]}>
+            当前学习空间还没有知识库，可以先不选。建立知识库并添加教材后，就能在这里选择。
+          </Text>
+        ) : null}
         {kb.data?.map((k) => (
           <Row
             key={k.id || k.name}
@@ -247,7 +296,7 @@ export function CapabilityOptions({
           />
         ))}
       </Page>
-    </Modal>
+    </FormModal>
   );
 }
 export function Explore({ capability = "" }: { capability?: string }) {
@@ -288,6 +337,14 @@ export function Explore({ capability = "" }: { capability?: string }) {
       </Actions>
       <ResourceState resource={r} />
       <Section title="更多学习方式" />
+      {!r.loading &&
+      !r.error &&
+      !r.data?.capabilities.some((c) => c.available) ? (
+        <NoOptions
+          message="当前服务没有可用的学习能力，请检查服务连接及配置。"
+          retry={r.reload}
+        />
+      ) : null}
       {r.data?.capabilities
         .filter((c) => c.available)
         .map((c) => (

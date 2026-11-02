@@ -46,8 +46,8 @@ test('HTTP, uploads, downloads and WS use one origin with no shared cookie jar',
   assert.equal(new TextDecoder().decode(await c.download('/file')), 'fixture-document');
   for (const call of f.calls) { assert.equal(new URL(call.url).origin, A.origin); assert.equal(call.init?.credentials, 'omit'); assert.equal(call.init?.redirect, 'error'); }
   assert.equal(c.socketOptions().url, 'ws://192.168.1.2:3782/ws');
-  assert.equal(c.socketOptions().headers.Authorization, `Bearer ${c.token}`);
-  assert.equal(c.socketOptions().headers.Cookie, '');
+  assert.equal(c.socketOptions().headers.Cookie, `dt_token=${c.token}`);
+  assert.equal('Authorization' in c.socketOptions().headers, false);
 });
 test('concurrent expired GETs coalesce login renewal; write is never replayed', async () => {
   const f = fixture(), c = new TutorClient(A, { username: 'demo', password: 'demo-pass' }, f.fetcher);
@@ -55,6 +55,19 @@ test('concurrent expired GETs coalesce login renewal; write is never replayed', 
   assert.equal(f.calls.filter(x => x.url.endsWith('/login')).length, 2);
   f.expire(); await assert.rejects(c.json('/write', { payload: 'once' }), /避免重复/);
   assert.equal(f.calls.filter(x => x.url.endsWith('/write')).length, 1);
+});
+test('WS credential marker is scoped to each selected client and cleared on retirement', async () => {
+  const f = fixture();
+  const a = new TutorClient(A, { username: 'demo', password: 'demo-pass' }, f.fetcher);
+  const b = new TutorClient(B, { username: 'other', password: 'demo-pass' }, f.fetcher);
+  await a.login(); await b.login();
+  assert.notEqual(a.socketOptions().headers['X-DeepTutor-Session'], b.socketOptions().headers['X-DeepTutor-Session']);
+  assert.equal(a.socketOptions().headers['X-DeepTutor-Session'], a.token);
+  assert.equal(a.socketOptions().headers.Origin, A.origin);
+  assert.equal(b.socketOptions().url.includes(b.token + '?'), false);
+  const anonymous = new TutorClient(A); assert.equal(anonymous.socketOptions().headers.Cookie, '');
+  assert.equal(anonymous.socketOptions().headers['X-DeepTutor-Session'], '');
+  a.close(); assert.throws(() => a.socketOptions(), /切换/);
 });
 test('closing a client aborts body reads and closes streams before late response arrives', async () => {
   let resolve!: () => void; let signal: AbortSignal | undefined;

@@ -1,3 +1,4 @@
+import { calendarName } from "../lib/learning-records";
 import { ExportFile } from "./export";
 import { chinaTime, calendarTime } from "../lib/calendar-time";
 import { useState } from "react";
@@ -42,7 +43,12 @@ export function Calendar() {
   const path = `/api/calendar/events?start=${enc(month.toISOString())}&end=${enc(end.toISOString())}&tz=Asia%2FShanghai`;
   const r = useResource<{ occurrences: Event[] }>(path);
   const calendars = useResource<{
-    calendars: { id: string; name: string; visible: boolean }[];
+    calendars: {
+      id: string;
+      name: string;
+      is_default?: boolean;
+      visible: boolean;
+    }[];
   }>("/api/calendar/calendars");
   const [editing, setEditing] = useState<Event | "new" | "calendar" | null>(
     null,
@@ -136,7 +142,7 @@ export function Calendar() {
       <Section title="日历分类" />
       {calendars.data?.calendars.map((c) => (
         <Text key={c.id} style={[s.text, { marginBottom: 8 }]}>
-          {c.name}
+          {calendarName(c)}
         </Text>
       ))}
       {editing ? (
@@ -180,7 +186,7 @@ export function Calendar() {
                     options:
                       calendars.data?.calendars.map((c) => ({
                         value: c.id,
-                        label: c.name,
+                        label: calendarName(c),
                       })) || [],
                   },
                   {

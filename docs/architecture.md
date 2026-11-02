@@ -2,7 +2,7 @@
 
 The installed client owns every application screen. The server supplies authenticated APIs, jobs, streams and account data. Legacy `module` routes map to native features; there is no upstream-page login bootstrap.
 
-`connection.ts` validates a selected origin. `SessionManager` retains one remembered account per service and serializes secure-store writes. Anonymous private services require the supported local-admin contract. `TutorClient` preserves no-redirect HTTP, explicit Bearer authentication and a disabled shared Cookie jar. Native WebSocket plugins keep the same boundary.
+`connection.ts` validates a selected origin. `SessionManager` retains one remembered account per service and serializes secure-store writes. Anonymous private services require the supported local-admin contract. `TutorClient` preserves no-redirect HTTP, explicit Bearer authentication and a disabled shared Cookie jar. WebSocket handshakes instead send the selected session as a dt_token Cookie. Native plugins replace shared cookies with that explicit session and strip the internal session marker before transmission.
 
 A scope comprises service origin (including port), account ID and workspace ID. Workspace changes create a new client; switches retire old HTTP/WS work, drafts, downloads and exports. Reads and navigation use the scope. Credentials are stored per service/account, with the selected workspace in that record; anonymous workspace selection is kept per service.
 

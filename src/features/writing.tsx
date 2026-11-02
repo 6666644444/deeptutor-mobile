@@ -1,3 +1,4 @@
+import { documentPreview } from "../lib/learning-records";
 import { NativeBlocks, inlineText, replaceBlock } from "./blocks";
 import { ExportFile } from "./export";
 import * as DocumentPicker from "expo-document-picker";
@@ -121,7 +122,7 @@ export function Writing({ id = "" }: { id?: string }) {
             <Row
               key={d.id}
               title={d.title || "未命名文章"}
-              detail={d.preview}
+              detail={documentPreview(d.preview)}
               onPress={() => feature("writing", d.id)}
             />
           ))}

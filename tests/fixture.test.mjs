@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
+import { request } from 'node:http';
 
 test('published mock serves the actual list/upload/PDF contracts and isolates account, service and workspace', { timeout: 15000 }, async t => {
   const base = 20000 + Math.floor(Math.random() * 20000);
@@ -17,6 +18,14 @@ test('published mock serves the actual list/upload/PDF contracts and isolates ac
     assert.equal(r.status, 200); return /dt_token=([^;]+)/.exec(r.headers.get('set-cookie'))[1];
   };
   const token = await login(origin, 'demo');
+  const handshake = headers => new Promise((resolve, reject) => {
+    const req = request(origin + '/ws', { headers: { ...headers, Upgrade: 'websocket', Connection: 'Upgrade', 'Sec-WebSocket-Version': '13', 'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==' } });
+    req.on('upgrade', (res, socket) => { socket.destroy(); resolve(res.statusCode); });
+    req.on('response', res => { res.resume(); resolve(res.statusCode); });
+    req.on('error', reject); req.end();
+  });
+  assert.equal(await handshake({ Authorization: `Bearer ${token}` }), 401);
+  assert.equal(await handshake({ Cookie: `dt_token=${token}` }), 101);
   const headers = { Authorization: `Bearer ${token}` };
   const read = async (path, extra = {}) => (await fetch(origin + path, { headers: { ...headers, ...extra } })).json();
   assert.deepEqual(await read('/api/question-notebook/entries?mistakes_only=true'), { items: [], total: 0 });

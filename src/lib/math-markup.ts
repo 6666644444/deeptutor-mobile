@@ -1,5 +1,13 @@
 import katex from "katex";
-export const hasMath = (text: string) => /\$[^$]+\$|\\\(|\\\[/.test(text);
+export function normalizeMathDelimiters(text: string) {
+  // Some model replies escape both $ delimiters while leaving TeX commands
+  // inside. Recover only that unambiguous case; escaped currency stays literal.
+  return text.replace(/\\\$([^$\n]+)\\\$/g, (all, body: string) =>
+    /\\[a-zA-Z]+/.test(body) ? `$${body}$` : all,
+  );
+}
+export const hasMath = (text: string) =>
+  /(?<!\\)\$[^$]+\$|\\\(|\\\[/.test(normalizeMathDelimiters(text));
 export const escapeHtml = (text: string) =>
   text.replace(
     /[&<>"']/g,
@@ -10,8 +18,8 @@ export const escapeHtml = (text: string) =>
   );
 export function mathMarkup(text: string): string {
   const pattern =
-    /(\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\$[^\n$]+?\$|\\\([^\n]+?\\\))/g;
-  return text
+    /((?<!\\)\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|(?<!\\)\$[^\n$]+?\$|\\\([^\n]+?\\\))/g;
+  return normalizeMathDelimiters(text)
     .split(pattern)
     .map((part, i) => {
       if (i % 2) {
