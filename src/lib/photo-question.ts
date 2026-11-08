@@ -1,5 +1,6 @@
 import type { ChatAttachment } from "./client.ts";
 import type { QuestionDraft } from "./drafts.ts";
+import { isImageAttachment } from "./chat-attachments.ts";
 
 export const PHOTO_QUESTION_PROMPT =
   "请先识别图片里的题目和作答，按【题目】【我的作答】【不确定之处】分段输出。看不清的地方注明，不要猜。等我校对后再讲解。";
@@ -25,7 +26,7 @@ export function photoQuestionDraft(
     .map((m) => m.content)
     .join("\n\n");
   const images = (source.attachments || []).filter(
-    (a) => a.type === "image" && (a.url || a.base64),
+    (a) => isImageAttachment(a) && (a.url || a.base64),
   );
   const section = (name: string) =>
     new RegExp(`【${name}】\\s*([\\s\\S]*?)(?=【|$)`)

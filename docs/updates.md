@@ -21,6 +21,8 @@
 
 ## 发布约定
 
+版本按[客户端版本规则](versioning.md)管理：同一官方版本上的修复只增加 Z，适配新的官方发布增加 Y 并将 Z 归零。`v0.3.1` 起不再使用 preview 后缀；仍兼容识别历史预览版本的升级顺序。
+
 1. 使用同一份锁定依赖、原生配置及公开证书构建基础包和导出资源。`fingerprint.config.js` 只忽略 JS 可见的 extra 发行元数据，保留原生依赖、插件、签名、权限等变化。
 2. 导出对应平台的生产 bundle；`scripts/ota-package.mjs` 的 `prepareCandidate` 生成候选清单与内容哈希资源，不发布。清单资源地址固定为本仓库目标 Release。
 3. 在相同 runtime 的独立安装包验证签名拒绝、下载、重启生效和学习流程，保存对应候选 SHA256 / updateId / runtime 的验收记录；不能用 mock 成功冒充真机链路通过。

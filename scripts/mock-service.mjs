@@ -28,7 +28,7 @@ function fixturePdf() {
 }
 for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort + 1, '单用户演示', false], [basePort + 2, '服务乙', true]]) {
   const tokens = new Map(), materials = new Map(), sessions = new Map(), personal = new Map();
-  const passwords = new Map(), displays = new Map();
+  const passwords = new Map(), displays = new Map(), attachments = new Map();
   let messageSequence = 0;
   const role = values['user-models'] ? 'user' : 'admin';
   const userFor = req => {
@@ -53,6 +53,12 @@ for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort +
     const user = userFor(req);
     if (!user) return json({ detail: 'Not authenticated' }, 401);
     const owner = `${user}:${req.headers['x-deeptutor-workspace'] || ''}`;
+    if (path.startsWith('/files/attachments/')) {
+      const item = attachments.get(path);
+      if (!item || item.owner !== owner) return json({ detail: 'Not found' }, 404);
+      res.writeHead(200, { 'Content-Type': item.mime, 'Cache-Control': 'no-store' });
+      return res.end(item.bytes);
+    }
     if (path === '/api/auth/profile') return json({ id: user, username: user, role, can_change_password: enabled, must_change_password: false });
     if (path === '/api/auth/profile/learner-profile') return json({ detail: 'Learner profile required' }, 403);
     if (path === '/api/auth/profile/password' && req.method === 'PUT') {
@@ -159,23 +165,33 @@ for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort +
       while (buffer.length >= 2) {
         const opcode = buffer[0] & 15; let n = buffer[1] & 127, offset = 2;
         if (n === 126) { if (buffer.length < 4) return; n = buffer.readUInt16BE(2); offset = 4; }
-        if (n === 127) { socket.end(); return; }
+        if (n === 127) { if (buffer.length < 10) return; const size = buffer.readBigUInt64BE(2); if (size > 14n * 1024n * 1024n) { socket.end(); return; } n = Number(size); offset = 10; }
         const mask = !!(buffer[1] & 128); if (buffer.length < offset + (mask ? 4 : 0) + n) return;
         const key = buffer.subarray(offset, offset + 4); if (mask) offset += 4;
         const data = Buffer.from(buffer.subarray(offset, offset + n)); if (mask) for (let i = 0; i < data.length; i++) data[i] ^= key[i % 4];
         buffer = buffer.subarray(offset + n); if (opcode === 8) { socket.end(Buffer.from([0x88, 0])); return; } if (opcode !== 1) continue;
         const value = JSON.parse(data.toString()); if (value.type !== 'start_turn') continue;
         if (String(value.content).includes('fixture-reject')) { send({ type: 'protocol_error', message: '模拟拒绝：本次未保存，可修改后重试。' }); continue; }
-        const id = value.session_id || randomUUID(), answer = `${label} / ${user}：已收到测试问题。这是流式协议演示，不是模型答案。${value.llm_selection ? `\n收到模型 ID：${value.llm_selection.model_id}` : ''}`;
+        const id = value.session_id || randomUUID();
+        let answer = `${label} / ${user}：已收到测试问题。这是流式协议演示，不是模型答案。${value.llm_selection ? `\n收到模型 ID：${value.llm_selection.model_id}` : ''}`;
         const owner = `${user}:${req.headers['x-deeptutor-workspace'] || ''}`;
         const previous = sessions.get(id);
         if (previous && previous.owner !== owner) { send({ type: 'error', content: 'Not found' }); continue; }
+        const storedAttachments = (Array.isArray(value.attachments) ? value.attachments : []).map(item => {
+          if (!item.base64) return item;
+          const aid = randomUUID(), filename = String(item.filename || 'file').replace(/[^a-zA-Z0-9.-]/g, '_');
+          const url = `/files/attachments/${id}/${aid}/${filename}`;
+          attachments.set(url, { owner, mime: item.mime_type || 'application/octet-stream', bytes: Buffer.from(item.base64, 'base64') });
+          const { base64, ...metadata } = item;
+          return { ...metadata, id: aid, url };
+        });
+        if (/排版验收|LayoutAcceptance/.test(String(value.content))) answer = '这是合成排版验收，不是模型识别。\n### **一起算一算**\n先算 $26 + 17 = 43$。\n- **第一步**：先加十位。\n- 第二步：再加个位。\n> 分数也可以读清楚：$\\frac{1}{2}$。\n| 内容 | 数量 |\n| --- | --- |\n| 苹果 | 3 |\n| 梨 | 4 |\n【题目】26+17=?\n【我的作答】43\n【不确定之处】这是测试用固定文本，请校对。';
         const parent = Object.hasOwn(value,'parent_message_id') ? value.parent_message_id : previous?.messages.at(-1)?.id || null;
         const userId = ++messageSequence, assistantId = ++messageSequence;
         const preferences = { ...previous?.preferences, llm_selection: value.llm_selection };
         if (value.selection_tutor_context) Object.assign(preferences, { parent_session_id: value.selection_tutor_context.parent_session_id, session_kind: 'selection_tutor', tutor_source_message_id: value.selection_tutor_context.quoted_message_id });
         const message = { id: assistantId, parent_message_id: userId, role: 'assistant', content: answer, attachments: [{ type: 'file', filename: '演示资料.pdf', mime_type: 'application/pdf', url: '/api/reading/materials/fixture-pdf/raw', generated: true }] };
-        sessions.set(id, { id, owner, title: '虚拟测试对话', preferences, messages: [...(previous?.messages || []), { id: userId, parent_message_id: parent, role: 'user', content: value.content }, message] });
+        sessions.set(id, { id, owner, title: '虚拟测试对话', preferences, messages: [...(previous?.messages || []), { id: userId, parent_message_id: parent, role: 'user', content: value.content, attachments: storedAttachments }, message] });
         send({ type: 'content', content: answer.slice(0, 12), session_id: id, seq: 1 });
         setTimeout(() => { if (!socket.destroyed) {
           send({ type: 'content', content: answer.slice(12), session_id: id, seq: 2 });

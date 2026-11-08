@@ -2,7 +2,7 @@
 
 ## 使用发行附件
 
-`0.3.0-preview.4` 提供 [Android APK](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.0-preview.4/deeptutor-mobile-0.3.0-preview.4-arm64-v8a.apk) 与 [iOS 工程 ZIP](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.0-preview.4/deeptutor-mobile-0.3.0-preview.4-ios-project.zip)。附件校验值、签名和实际测试结果见[该版本 Release](https://github.com/TinyPandaGame/deeptutor-mobile/releases/tag/v0.3.0-preview.4)。
+`0.3.1` 提供 [Android APK](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.1/deeptutor-mobile-0.3.1-arm64-v8a.apk) 与 [iOS 工程 ZIP](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.1/deeptutor-mobile-0.3.1-ios-project.zip)。附件校验值、签名和实际测试结果见[该版本 Release](https://github.com/TinyPandaGame/deeptutor-mobile/releases/tag/v0.3.1)。
 
 ### Android APK
 
@@ -143,7 +143,7 @@ npm run export:source -- --output-dir <交付目录>
 
 iOS 分享扩展的 App Group 根据 bundle identifier 生成。真机发行需配置自己的 App Group、证书和 provisioning；模拟器构建通过不能替代真机验证。
 
-本版源码标签为 `v0.3.0-preview.4`，原生基础版本为 0.3.0（Android versionCode 5）。iOS 工程的提供不代表已发行 IPA 或上传 TestFlight。
+本版源码标签为 `v0.3.1`，原生基础版本为 0.3.0（Android versionCode 5）。iOS 工程的提供不代表已发行 IPA 或上传 TestFlight。
 
 ### 独立模拟器验收
 

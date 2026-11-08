@@ -4,6 +4,10 @@ This is an Expo/React Native mobile application. Prioritize mobile-first pattern
 
 Keep user-selected computer/server origins, anonymous/account modes, and service/account/workspace isolation. All application screens are client-owned API/WS workflows. Inline math/diagram canvases must not load upstream application pages or receive credentials. Reference projects are read-only; never copy their deployment defaults, signing material, data or Git history. Generated renderer files are recreated by npm ci, not committed.
 
+## Release numbering
+
+Follow `docs/versioning.md`: numeric `vX.Y.Z` only. Client fixes on the same tested upstream version increment Z; adapting a new official release increments Y and resets Z. Keep native runtime unchanged for JS-only updates. Do not publish before the target-client checks pass.
+
 ## Expo has changed — do not trust your training data
 
 Expo ships breaking changes every SDK release. APIs you remember are likely renamed, moved, or removed. Before writing any code that touches an Expo, EAS, or React Native API:

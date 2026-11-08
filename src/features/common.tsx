@@ -27,6 +27,7 @@ import { TutorClient } from "../lib/client";
 import { chatDraft } from "../lib/drafts";
 import { MathProse } from "./math";
 import { hasMath } from "../lib/math-markup";
+import { readingBlocks } from "../lib/reading-content";
 import { useLearningDisplay } from "../lib/learning-display-context";
 import { learningTextStyle } from "../lib/learning-display";
 
@@ -264,36 +265,23 @@ export function SmallAction({
 }
 // Markdown stays native Text: headings, lists, code and quotations keep selection.
 // HTML is never evaluated here and server content cannot navigate the app.
-export function Prose({ text }: { text: unknown }) {
+export function Prose({ text, streaming = false }: { text: unknown; streaming?: boolean }) {
   const { value: display } = useLearningDisplay();
   if (typeof text !== "string" || !text.trim()) return null;
-  if (hasMath(text)) return <MathProse text={text} />;
   return (
-    <View style={{ gap: 7 }}>
-      {text.split("\n").map((line, i) => {
-        const h = /^(#{1,6})\s+(.*)/.exec(line);
-        return (
-          <Text
-            key={i}
-            selectable
-            style={[
-              s.text,
-              learningTextStyle(display, h ? (h[1].length < 3 ? 21 : 18) : 16),
-              h && { fontWeight: "700" },
-              line.startsWith(">") && {
-                color: C.muted,
-                borderLeftWidth: 3,
-                borderColor: C.teal,
-                paddingLeft: 12,
-              },
-            ]}
-          >
-            {h
-              ? h[2]
-              : line.replace(/^[-*]\s+/, "• ").replace(/\*\*(.*?)\*\*/g, "$1")}
-          </Text>
-        );
-      })}
+    <View style={{ gap: 9 }}>
+      {readingBlocks(text, streaming).map((block, i) => (
+        block.kind !== "code" && hasMath(block.text) ? (
+          <MathProse key={i} text={block.text} streaming={streaming} />
+        ) : (
+          <Text key={i} selectable style={[
+            s.text,
+            learningTextStyle(display, block.kind === "heading" ? 18 : 16),
+            block.kind === "heading" && { fontWeight: "700", marginTop: 4 },
+            block.kind === "code" && { fontFamily: "monospace", padding: 10, backgroundColor: C.pale, borderRadius: 8 },
+          ]}>{block.text}</Text>
+        )
+      ))}
     </View>
   );
 }

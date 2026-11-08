@@ -1,4 +1,6 @@
 import { ownTemporaryFile } from "../../lib/temporary-files";
+import { pickQuestionPhoto } from "../../lib/pick-photo";
+import { isImageAttachment, outgoingAttachments } from "../../lib/chat-attachments";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
@@ -25,6 +27,7 @@ import {
   photoQuestionDraft,
 } from "../../lib/photo-question";
 import { PrivateImage } from "../../components/PrivateImage";
+import { QuestionImage } from "../../components/QuestionImage";
 import { Photo, photoDraft, questionDraft, chatDraft } from "../../lib/drafts";
 import { Button, C, Empty, Field, Heading, Icon, Page, s } from "../../ui";
 
@@ -155,6 +158,7 @@ function Chat({ id, questionId }: { id: string; questionId?: string }) {
   const waitingRef = useRef(false);
   const alive = useRef(true);
   const scroll = useRef<ScrollView>(null);
+  const followOutput = useRef(true);
   const draftContext = useMemo(() => ({ ...context, ...options, llm_selection: modelChoice }), [context, options, modelChoice]);
   const draft = useComposerDraft(api, sessionId || id, !!(initialDraft || initialPhoto || questionId), { text, photo, document, context: draftContext }, value => {
     setText(value.text); setPhoto(value.photo); setDocument(value.document);
@@ -165,6 +169,19 @@ function Chat({ id, questionId }: { id: string; questionId?: string }) {
     }
   });
   const source = context.selection_tutor_context as SourceContext | undefined;
+  async function choosePhoto(camera: boolean) {
+    if (!api || picking || sending.current) return;
+    setPicking(true);
+    try {
+      const selected = await pickQuestionPhoto(api, camera);
+      if (selected && alive.current) {
+        draft.edited();
+        setPhoto(selected);
+        if (!text.trim()) setText(PHOTO_QUESTION_PROMPT);
+      }
+    } catch (e) { if (alive.current) Alert.alert("未能取得照片", (e as Error).message); }
+    finally { if (alive.current) setPicking(false); }
+  }
   async function startThread(message: Message) {
     if (!api || !sid.current || busy) return;
     try {
@@ -346,6 +363,7 @@ function Chat({ id, questionId }: { id: string; questionId?: string }) {
           return;
         }
         setStatus("DeepTutor 正在思考…");
+        followOutput.current = true;
         setMessages((v) => [
           ...v,
           {
@@ -355,16 +373,7 @@ function Chat({ id, questionId }: { id: string; questionId?: string }) {
               prompt +
               (image ? "\n[已附题目照片]" : "") +
               (attached ? `\n[附件：${attached.name}]` : ""),
-            attachments: image
-              ? [
-                  {
-                    type: "image",
-                    base64: image.base64,
-                    filename: image.filename,
-                    mime_type: "image/jpeg",
-                  },
-                ]
-              : [],
+            attachments: outgoingAttachments(image, filePayload, Array.isArray(extra.attachments) ? extra.attachments as ChatAttachment[] : []),
           },
           { id: reply, role: "assistant", content: "" },
         ]);
@@ -384,20 +393,7 @@ function Chat({ id, questionId }: { id: string; questionId?: string }) {
             question_notebook_references: questionId
               ? [Number(questionId)]
               : [],
-            attachments: [
-              ...(Array.isArray(extra.attachments) ? extra.attachments : []),
-              ...(image
-                ? [
-                    {
-                      type: "image",
-                      base64: image.base64,
-                      filename: image.filename,
-                      mime_type: "image/jpeg",
-                    },
-                  ]
-                : []),
-              ...(filePayload ? [filePayload] : []),
-            ],
+            attachments: outgoingAttachments(image, filePayload, Array.isArray(extra.attachments) ? extra.attachments as ChatAttachment[] : []),
           }),
         );
       };
@@ -729,9 +725,14 @@ function Chat({ id, questionId }: { id: string; questionId?: string }) {
           }}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
-          onContentSizeChange={() =>
-            scroll.current?.scrollToEnd({ animated: true })
-          }
+          onScrollBeginDrag={() => { followOutput.current = false; }}
+          onScroll={({ nativeEvent: { contentOffset, contentSize, layoutMeasurement } }) => {
+            followOutput.current = contentSize.height - contentOffset.y - layoutMeasurement.height < 60;
+          }}
+          scrollEventThrottle={16}
+          onContentSizeChange={() => {
+            if (followOutput.current) scroll.current?.scrollToEnd({ animated: true });
+          }}
         >
           {source ? <View style={s.notice}>
             <Text style={s.rowTitle}>这是一段单独追问</Text>
@@ -762,7 +763,7 @@ function Chat({ id, questionId }: { id: string; questionId?: string }) {
                     maxWidth: "95%",
                     width:
                       m.role === "assistant" ||
-                      m.attachments?.some((a) => a.type === "image")
+                      m.attachments?.some(isImageAttachment)
                         ? "95%"
                         : undefined,
                     minWidth: 100,
@@ -785,29 +786,25 @@ function Chat({ id, questionId }: { id: string; questionId?: string }) {
                   }} /> : null}
                 {m.role === "user" &&
                   m.attachments
-                    ?.filter((a) => a.type === "image")
+                    ?.filter(isImageAttachment)
                     .map((a, index) =>
                       a.url ? (
                         <PrivateImage key={index} path={a.url} />
                       ) : a.base64 ? (
-                        <Image
+                        <QuestionImage
                           key={index}
-                          source={{
-                            uri: `data:${a.mime_type || "image/jpeg"};base64,${a.base64}`,
-                          }}
-                          style={{ width: 230, height: 180 }}
-                          resizeMode="contain"
+                          uri={`data:${a.mime_type || "image/jpeg"};base64,${a.base64}`}
                         />
                       ) : null,
                     )}
                 {m.role === "user" &&
-                m.attachments?.some((a) => a.type === "image") ? (
+                m.attachments?.some(isImageAttachment) ? (
                   <SmallAction
                     title="记录这道拍照题"
                     onPress={() => saveQuestion(m.id)}
                   />
                 ) : null}
-                {m.attachments?.filter(a => a.url && (m.role === "assistant" || a.type !== "image")).map((a, index) => <GeneratedFile key={index} url={a.url!} filename={a.filename} mime={a.mime_type} />)}
+                {m.attachments?.filter(a => a.url && (m.role === "assistant" || !isImageAttachment(a))).map((a, index) => <GeneratedFile key={index} url={a.url!} filename={a.filename} mime={a.mime_type} />)}
                 {m.role === "user" ? (
                   <Prose text={m.content} />
                 ) : (
@@ -831,7 +828,7 @@ function Chat({ id, questionId }: { id: string; questionId?: string }) {
                       {part.role === "user" ? (
                         <Text style={s.label}>我的回答</Text>
                       ) : null}
-                      <Prose text={part.text} />
+                      <Prose text={part.text} streaming={busy && i === messages.length - 1} />
                     </View>
                   ))
                 )}
@@ -1005,6 +1002,8 @@ function Chat({ id, questionId }: { id: string; questionId?: string }) {
                 title={picking ? "正在选择…" : "添加附件"}
                 onPress={() => void chooseDocument()}
               />
+              <SmallAction title="拍照" onPress={() => void choosePhoto(true)} />
+              <SmallAction title="相册" onPress={() => void choosePhoto(false)} />
             </View>
           ) : null}
           {modelOpen && <ModelPicker value={modelChoice} onChange={setModelChoice} onClose={() => setModelOpen(false)} />}

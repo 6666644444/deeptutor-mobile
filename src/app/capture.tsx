@@ -1,7 +1,6 @@
-import { ownTemporaryFile } from "../lib/temporary-files";
+import { pickQuestionPhoto } from "../lib/pick-photo";
 import { useState } from "react";
 import { Alert, Image, Text, View } from "react-native";
-import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { useAuth } from "../lib/auth";
 import { Photo, photoDraft } from "../lib/drafts";
@@ -13,32 +12,9 @@ export default function Capture() {
   async function pick(camera: boolean) {
     setBusy(true);
     try {
-      if (
-        camera &&
-        !(await ImagePicker.requestCameraPermissionsAsync()).granted
-      ) {
-        Alert.alert("需要相机权限", "也可以选择相册里的题目照片。");
-        return;
-      }
-      const result = await (
-        camera
-          ? ImagePicker.launchCameraAsync
-          : ImagePicker.launchImageLibraryAsync
-      )({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        base64: true,
-        quality: 0.8,
-      });
-      if (!result.canceled) {
-        const a = result.assets[0];
-        if (!a.base64) throw new Error("图片未能读取，请重新选择。");
-        if (a.base64.length > 10 * 1024 * 1024)
-          throw new Error("照片较大，请裁剪到一道题再试。");
-        if (!api) return;
-        const uri = await ownTemporaryFile(api, a.uri, "question.jpg");
-        setPhoto({ uri, base64: a.base64, filename: "question.jpg" });
-      }
+      if (!api) return;
+      const selected = await pickQuestionPhoto(api, camera);
+      if (selected) setPhoto(selected);
     } catch (e) {
       Alert.alert("未能取得照片", (e as Error).message);
     } finally {

@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
-import { Image, Text } from "react-native";
+import { Text, View } from "react-native";
 import { useAuth } from "../lib/auth";
 import { temporaryBytes } from "../lib/temporary-files";
+import { Button, s } from "../ui";
+import { QuestionImage } from "./QuestionImage";
 export function PrivateImage({ path }: { path: string }) {
   const { api } = useAuth();
+  const [attempt, setAttempt] = useState(0);
   const key = `${api?.scope}:${path}`;
   const [stored, setStored] = useState<{ key: string; uri: string } | null>(
     null,
@@ -37,16 +40,18 @@ export function PrivateImage({ path }: { path: string }) {
       alive = false;
       controller.abort();
     };
-  }, [api, path, key]);
-  if (error || !uri) return <Text>{error || "正在读取附件…"}</Text>;
+  }, [api, path, key, attempt]);
+  if (error) return <View style={{ gap: 8, paddingVertical: 12 }}>
+    <Text style={s.muted}>{error}</Text>
+    <Button title="重新加载照片" secondary onPress={() => { setFailure(null); setStored(null); setAttempt(v => v + 1); }} />
+  </View>;
+  if (!uri) return <Text style={s.muted}>正在读取照片…</Text>;
   return (
-    <Image
-      source={{ uri }}
+    <QuestionImage
+      uri={uri}
       onError={() =>
         setFailure({ key, message: "图片暂时无法显示，请返回后重新打开。" })
       }
-      resizeMode="contain"
-      style={{ width: "100%", height: 200, borderRadius: 12 }}
     />
   );
 }
