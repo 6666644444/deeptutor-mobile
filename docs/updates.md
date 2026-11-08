@@ -54,6 +54,15 @@ node --experimental-strip-types scripts/ota-release.mjs seal \
 
 ## 当前验证状态
 
-Android Release 构建已在隔离应用上验证：错误签名被 Expo 原生校验拒绝；正确更新下载后重启生效；登录和资料保留；更新接口返回 503 后冷启动继续使用缓存更新。测试使用本机模拟的 GitHub Releases 元数据及附件服务，学习接口仍连接实际部署的服务。iOS 模拟器工程编译通过，iOS OTA 运行及公开 GitHub 热更新清单尚未验收。
+`0.3.0-preview.4` 已发布双端签名清单。Android / iOS 隔离模拟器均通过真实 GitHub 版本查询、清单读取、资源下载、界面重启及完全冷启动；更新后版本和候选 ID 一致。签名前还验证了错误签名拒绝、登录与草稿保留、合成服务的流式问答。
+
+| 平台 | 清单对应的 runtime |
+| --- | --- |
+| Android | `660f96d42a49181f68a6ce46138eb863a1bcaf7b` |
+| iOS | `37432659d1f76459bacdd6410f3c4da64ea5c62d` |
+
+测试基线使用本版原生包及较旧的 JS 版本标记，以验证同 runtime 更新。**公开 preview.3 Android 安装包的 runtime 不同，需安装新版 APK**；自行签名或修改原生配置的 iOS 构建也须匹配 runtime。已安装 preview.4 的用户不会重复接收同版本更新。
+
+本轮未验证 iOS 真机、生产更新源断网或真实模型推理；模型与主要学习流程的独立测试范围见[验证记录](validation.md)。历史本机模拟更新源的 503 测试不代表公开分发断网已验收。
 
 参考：[Expo Updates](https://docs.expo.dev/versions/v57.0.0/sdk/updates/)、[运行时版本](https://docs.expo.dev/eas-update/runtime-versions/)、[GitHub Release 附件](https://docs.github.com/en/rest/releases/assets)。
