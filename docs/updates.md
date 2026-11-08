@@ -56,15 +56,17 @@ node --experimental-strip-types scripts/ota-release.mjs seal \
 
 ## 当前验证状态
 
-`0.3.0-preview.4` 已发布双端签名清单。Android / iOS 隔离模拟器均通过真实 GitHub 版本查询、清单读取、资源下载、界面重启及完全冷启动；更新后版本和候选 ID 一致。签名前还验证了错误签名拒绝、登录与草稿保留、合成服务的流式问答。
+`0.3.1` 已发布双端签名清单，2026-11-09 完成公开升级验收。Android 使用实际公开的 preview.4 APK，iOS 使用原 preview.4 Release 模拟器构建；两端均首次通过真实 GitHub 版本查询、清单读取和资源下载，界面重启及完全冷启动后进入 0.3.1，登录与预置草稿保留，原生记录中的候选 ID 一致。
+
+签名前，同 runtime 独立测试基线还验证了错误签名拒绝、正确下载、重启，以及升级后的合成照片问答、原图/历史图片查看、公式与列表排版。测试使用合成服务，未将固定回复计为真实模型推理。
 
 | 平台 | 清单对应的 runtime |
 | --- | --- |
 | Android | `660f96d42a49181f68a6ce46138eb863a1bcaf7b` |
 | iOS | `37432659d1f76459bacdd6410f3c4da64ea5c62d` |
 
-测试基线使用本版原生包及较旧的 JS 版本标记，以验证同 runtime 更新。**公开 preview.3 Android 安装包的 runtime 不同，需安装新版 APK**；自行签名或修改原生配置的 iOS 构建也须匹配 runtime。已安装 preview.4 的用户不会重复接收同版本更新。
+公开 preview.4 Android APK 可接收本次 OTA。**公开 preview.3 Android 安装包的 runtime 不同，需安装新版 APK**；自行签名或修改原生配置的 iOS 构建也须匹配 runtime。已安装 0.3.1 的用户不会重复接收同版本更新。
 
-本轮未验证 iOS 真机、生产更新源断网或真实模型推理；模型与主要学习流程的独立测试范围见[验证记录](validation.md)。历史本机模拟更新源的 503 测试不代表公开分发断网已验收。
+本轮 OTA 验收限模拟器，未验证实体手机拍照、生产更新源断网或真实模型推理；各项独立测试范围见[验证记录](validation.md)。历史本机模拟更新源的 503 测试不代表公开分发断网已验收。
 
 参考：[Expo Updates](https://docs.expo.dev/versions/v57.0.0/sdk/updates/)、[运行时版本](https://docs.expo.dev/eas-update/runtime-versions/)、[GitHub Release 附件](https://docs.github.com/en/rest/releases/assets)。
