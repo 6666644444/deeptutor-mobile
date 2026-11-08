@@ -1,5 +1,5 @@
 import { ownTemporaryFile } from "../../lib/temporary-files";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -42,7 +42,12 @@ import {
   visibleMessage,
   cancelledTurn,
 } from "../../lib/conversation";
-import { Chips, Editor, Prose, SmallAction } from "../../features/common";
+import { Chips, Editor, Prose, SmallAction, ask } from "../../features/common";
+import { GeneratedFile } from "../../features/generated-file";
+import { ChatThreads, ThreadSourceEditor } from "../../features/chat-threads";
+import { tutorSource, threadSource, visibleBranch, type SourceContext } from "../../lib/chat-actions";
+import { useComposerDraft } from "../../lib/use-composer-draft";
+import { mergeChatOptions } from "../../lib/learning-options";
 import { ModelPicker } from "../../features/model-picker";
 import { loadModelOptions, resolveTurnModel, selection, selectedModel, type ModelSelection, type ModelOptions } from "../../lib/models";
 type Message = {
@@ -51,6 +56,7 @@ type Message = {
   content: string;
   events?: TurnEvent[];
   attachments?: ChatAttachment[];
+  parent_message_id?: number | null;
 };
 
 function displayBody(message: Message) {
@@ -75,12 +81,20 @@ const NativeSocket = WebSocket as unknown as {
     options: { headers: Record<string, string> },
   ): WebSocket;
 };
-export default function Chat() {
+export default function ChatRoute() {
   const { id, questionId } = useLocalSearchParams<{
     id: string;
     questionId?: string;
   }>();
   const { api } = useAuth();
+  return <Chat key={`${api?.scope}:${id}`} id={id} questionId={questionId} />;
+}
+function Chat({ id, questionId }: { id: string; questionId?: string }) {
+  const { api } = useAuth();
+  const [threadsOpen, setThreadsOpen] = useState(false);
+  const [sourceOpen, setSourceOpen] = useState(false);
+  const [editingMessage, setEditingMessage] = useState<Message | null>(null);
+  const [branches, setBranches] = useState<Record<string, number>>({});
   const [initialDraft] = useState(() =>
     api ? chatDraft.take(api) : undefined,
   );
@@ -89,10 +103,7 @@ export default function Chat() {
   );
   const [options, setOptions] = useState<ChatOptions>(
     () =>
-      ({
-        ...defaultOptions(String(initialDraft?.context.capability || "chat")),
-        ...initialDraft?.context,
-      }) as ChatOptions,
+      mergeChatOptions(defaultOptions(String(initialDraft?.context.capability || "chat")), initialDraft?.context || {}),
   );
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [modelOpen, setModelOpen] = useState(false);
@@ -144,6 +155,23 @@ export default function Chat() {
   const waitingRef = useRef(false);
   const alive = useRef(true);
   const scroll = useRef<ScrollView>(null);
+  const draftContext = useMemo(() => ({ ...context, ...options, llm_selection: modelChoice }), [context, options, modelChoice]);
+  const draft = useComposerDraft(api, sessionId || id, !!(initialDraft || initialPhoto || questionId), { text, photo, document, context: draftContext }, value => {
+    setText(value.text); setPhoto(value.photo); setDocument(value.document);
+    if (id === "new") {
+      setContext(value.context);
+      setOptions(mergeChatOptions(defaultOptions(String(value.context.capability || "chat")), value.context));
+      setModelChoice(selection(value.context.llm_selection));
+    }
+  });
+  const source = context.selection_tutor_context as SourceContext | undefined;
+  async function startThread(message: Message) {
+    if (!api || !sid.current || busy) return;
+    try {
+      const parent = await api.request<Session>(`/api/sessions/${encodeURIComponent(sid.current)}`);
+      ask(api, "请帮我进一步理解这条内容。", { selection_tutor_context: threadSource(parent, message.id), llm_selection: modelChoice });
+    } catch (e) { Alert.alert("暂时无法追问", (e as Error).message); }
+  }
   function stopTurn() {
     const cancel = cancellation.current;
     cancel.requested = true;
@@ -232,10 +260,12 @@ export default function Chat() {
     setNotice("");
     setStatus("正在连接…");
     const prompt = (override || text).trim();
-    const image = resumeId ? undefined : photo;
-    const attached = resumeId ? null : document;
+    const image = resumeId || Object.hasOwn(extra, "attachments") ? undefined : photo;
+    const attached = resumeId || Object.hasOwn(extra, "attachments") ? null : document;
     const submission = `mobile_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const reply = submission + "_reply";
+    let resolveAdmission: (accepted: boolean) => void = () => {};
+    const admission = new Promise<boolean>(resolve => { resolveAdmission = resolve; });
     try {
       // Validate/renew before opening WS; failed connections never silently re-submit a turn.
       await api.ensureSession();
@@ -264,7 +294,12 @@ export default function Chat() {
       let response = "";
       let lastSeq = 0;
       let eventTrace: TurnEvent[] = [];
+      let admitted = false;
       const finish = (msg = "") => {
+        if (!admitted && !resumeId) {
+          resolveAdmission(false);
+          if (alive.current) setMessages(v => v.filter(m => m.id !== submission && m.id !== reply));
+        }
         if (socket.current !== ws || !alive.current) return;
         terminal = true;
         replyPending.current = false;
@@ -310,9 +345,6 @@ export default function Chat() {
           ]);
           return;
         }
-        setText("");
-        setPhoto(undefined);
-        setDocument(null);
         setStatus("DeepTutor 正在思考…");
         setMessages((v) => [
           ...v,
@@ -353,6 +385,7 @@ export default function Chat() {
               ? [Number(questionId)]
               : [],
             attachments: [
+              ...(Array.isArray(extra.attachments) ? extra.attachments : []),
               ...(image
                 ? [
                     {
@@ -417,6 +450,17 @@ export default function Chat() {
         if (event.seq && event.seq <= lastSeq) return;
         if (event.seq) lastSeq = event.seq;
         if (event.session_id) {
+          // Admission is now confirmed. A failed connection before this point
+          // keeps both text and attachments available for review and retry.
+          if (!resumeId && !admitted && event.type !== "error") {
+            admitted = true;
+            resolveAdmission(true);
+            // Editing a historical message must not erase an unrelated unsent draft.
+            if (override === undefined) {
+              setText(""); setPhoto(undefined); setDocument(null);
+              void draft.clear().catch(e => setNotice(`已提交，但草稿清理失败：${e.message}`));
+            }
+          }
           sid.current = event.session_id;
           setSessionId(event.session_id);
         }
@@ -492,6 +536,7 @@ export default function Chat() {
                 if (alive.current) {
                   setMessages(r.messages || []);
                   setTitle(r.title || title);
+                  setBranches(object(r.preferences?.selected_branches) as Record<string, number>);
                 }
               })
               .catch(() => {});
@@ -510,6 +555,7 @@ export default function Chat() {
         clearTimeout(timeout);
         if (!terminal) finish("连接已断开，请恢复进度查看已保存的结果。");
       };
+      return resumeId ? true : await admission;
     } catch (e) {
       if (alive.current) {
         setError((e as Error).message);
@@ -518,6 +564,7 @@ export default function Chat() {
         setStopping(false);
         setStatus("");
       }
+      return false;
     }
   }
   useEffect(() => {
@@ -531,6 +578,7 @@ export default function Chat() {
             setMessages(r.messages || []);
             setTitle(r.title || "学习对话");
             const prefs = r.preferences || {};
+            setBranches(object(prefs.selected_branches) as Record<string, number>);
             setModelChoice(selection(prefs.llm_selection));
             setOptions((o) => ({
               ...o,
@@ -559,11 +607,11 @@ export default function Chat() {
               "notebook_references",
             ];
             setContext(
-              Object.fromEntries(
+              { ...Object.fromEntries(
                 allowed
                   .filter((k) => prefs[k] !== undefined)
                   .map((k) => [k, prefs[k]]),
-              ),
+              ), ...(tutorSource(prefs) ? { selection_tutor_context: tutorSource(prefs) } : {}) },
             );
             if (
               r.active_turn &&
@@ -661,6 +709,7 @@ export default function Chat() {
                       onPress: () => setTraceOpen((v) => !v),
                     },
                     { text: "恢复进度", onPress: () => void restoreProgress() },
+                    ...(sessionId ? [{ text: "查看单独追问", onPress: () => setThreadsOpen(true) }] : []),
                   ])
                 }
               >
@@ -684,6 +733,12 @@ export default function Chat() {
             scroll.current?.scrollToEnd({ animated: true })
           }
         >
+          {source ? <View style={s.notice}>
+            <Text style={s.rowTitle}>这是一段单独追问</Text>
+            <Text style={s.muted}>{source.quoted_message_id == null ? "参考原对话，未绑定单条消息" : "参考原对话中的一条消息"}</Text>
+            <SmallAction title="查看或更换来源" onPress={() => setSourceOpen(true)} />
+            <SmallAction title="返回原对话" onPress={() => router.push({ pathname: "/chat/[id]", params: { id: source.parent_session_id } })} />
+          </View> : null}
           {!messages.length && (
             <Empty
               title="今天有什么不懂的？"
@@ -691,7 +746,7 @@ export default function Chat() {
               icon="chatbubbles-outline"
             />
           )}
-          {messages
+          {visibleBranch(messages, branches)
             .filter((m, i) =>
               visibleMessage(m, busy && i === messages.length - 1),
             )
@@ -717,6 +772,17 @@ export default function Chat() {
                 <Text style={[s.muted, { marginBottom: 7 }]}>
                   {m.role === "user" ? "我" : "DeepTutor"}
                 </Text>
+                {!busy && sessionId && !String(m.id).startsWith("mobile_") ? <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+                  <SmallAction title="单独追问" onPress={() => void startThread(m)} />
+                  {m.role === "user" && /^\d+$/.test(String(m.id)) ? <SmallAction title="修改后再问" onPress={() => setEditingMessage(m)} /> : null}
+                </View> : null}
+                {!busy && Object.hasOwn(m, "parent_message_id") && messages.filter(x => (x.parent_message_id ?? null) === (m.parent_message_id ?? null)).length > 1 ? <Chips
+                  value={String(m.id)}
+                  items={messages.filter(x => (x.parent_message_id ?? null) === (m.parent_message_id ?? null)).map((x, index) => ({ value: String(x.id), label: `版本 ${index + 1}` }))}
+                  onChange={value => {
+                    const next = { ...branches, [String(m.parent_message_id ?? null)]: Number(value) };
+                    void api?.json(`/api/sessions/${encodeURIComponent(sessionId)}/branch-selection`, { selected_branches: next }, "PUT").then(() => setBranches(next)).catch(e => Alert.alert("未能切换", e.message));
+                  }} /> : null}
                 {m.role === "user" &&
                   m.attachments
                     ?.filter((a) => a.type === "image")
@@ -741,6 +807,7 @@ export default function Chat() {
                     onPress={() => saveQuestion(m.id)}
                   />
                 ) : null}
+                {m.attachments?.filter(a => a.url && (m.role === "assistant" || a.type !== "image")).map((a, index) => <GeneratedFile key={index} url={a.url!} filename={a.filename} mime={a.mime_type} />)}
                 {m.role === "user" ? (
                   <Prose text={m.content} />
                 ) : (
@@ -898,6 +965,7 @@ export default function Chat() {
             </View>
           ) : null}
           {notice ? <Text style={s.muted}>{notice}</Text> : null}
+          {draft.error ? <Text style={{ color: C.danger }}>草稿：{draft.error}</Text> : null}
           {error ? (
             <Text
               accessibilityRole="alert"
@@ -1000,8 +1068,8 @@ export default function Chat() {
               accessibilityLabel="输入问题"
               placeholder="把问题告诉我…"
               value={text}
-              onChangeText={setText}
-              editable={!busy || waiting}
+              onChangeText={value => { draft.edited(); setText(value); }}
+              editable={draft.ready && (!busy || waiting)}
               multiline
               style={[
                 s.input,
@@ -1011,7 +1079,7 @@ export default function Chat() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="发送问题"
-              disabled={(busy && !waiting) || !text.trim()}
+              disabled={!draft.ready || (busy && !waiting) || !text.trim()}
               onPress={() => void send()}
               style={{
                 backgroundColor: C.teal,
@@ -1028,6 +1096,14 @@ export default function Chat() {
           </View>
         </View>
       </KeyboardAvoidingView>
+      {threadsOpen ? <ChatThreads sessionId={sessionId} onClose={() => setThreadsOpen(false)} /> : null}
+      {sourceOpen && source ? <ThreadSourceEditor sessionId={sessionId} source={source} onClose={() => setSourceOpen(false)} onSave={value => setContext(c => ({ ...c, selection_tutor_context: value }))} /> : null}
+      {editingMessage ? <Editor title="修改后再问" fields={[{ key: "content", label: "问题内容", multiline: true, required: true, value: editingMessage.content }]} onClose={() => setEditingMessage(null)} beforeFields={() => <Text style={s.muted}>会保留原来的对话版本，并使用当前选择的模型重新回答。原附件也会保留。</Text>} onSave={async values => {
+        const parent = editingMessage.parent_message_id ?? null;
+        const accepted = await send(values.content, { parent_message_id: parent, attachments: editingMessage.attachments || [] });
+        if (!accepted) throw new Error("问题尚未提交，请检查连接后重试。修改内容已保留。");
+        setBranches(old => { const next = { ...old }; delete next[String(parent)]; return next; });
+      }} /> : null}
       {optionsOpen ? (
         <CapabilityOptions
           value={options}

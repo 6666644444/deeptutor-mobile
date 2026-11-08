@@ -16,9 +16,13 @@ const NativeDocument = requireNativeViewManager<Props>("LearningDocument");
 export function Pdf({
   materialId,
   page,
+  path,
+  onPages,
 }: {
-  materialId: string;
+  materialId?: string;
   page: number;
+  path?: string;
+  onPages?: (count: number) => void;
 }) {
   const { api } = useAuth();
   const [uri, setUri] = useState("");
@@ -32,7 +36,7 @@ export function Pdf({
         try {
           await api.ensureSession();
           const bytes = await api.download(
-            `/api/reading/materials/${encodeURIComponent(materialId)}/raw`, {}, 60000, 50 * 1024 * 1024,
+            path ? api.contentPath(path) : `/api/reading/materials/${encodeURIComponent(materialId || "")}/raw`, {}, 60000, 50 * 1024 * 1024,
           );
           if (!alive) return;
           file = new File(temporaryBytes(api, bytes, "reader.pdf"));
@@ -45,7 +49,7 @@ export function Pdf({
       alive = false;
       if (file?.exists) file.delete();
     };
-  }, [api, materialId, retry]);
+  }, [api, materialId, path, retry]);
   return (
     <View>
       {error ? (
@@ -64,6 +68,7 @@ export function Pdf({
           style={{ height: 520, width: "100%", backgroundColor: "white" }}
           onDocumentState={(e) => {
             if (e.nativeEvent.error) setError(e.nativeEvent.error);
+            if (e.nativeEvent.pages) onPages?.(e.nativeEvent.pages);
           }}
         />
       ) : (

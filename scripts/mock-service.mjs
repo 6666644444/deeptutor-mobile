@@ -14,17 +14,22 @@ const servers = [];
 // Small synthetic document, generated in memory; never imports a user's file.
 function fixturePdf() {
   const text = 'BT /F1 24 Tf 40 150 Td (DeepTutor public PDF fixture) Tj ET';
-  const objects = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+  const second = 'BT /F1 24 Tf 40 150 Td (Second page for navigation check) Tj ET';
+  const objects = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R 6 0 R] /Count 2 >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 480 240] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>',
-    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>', `<< /Length ${text.length} >>\nstream\n${text}\nendstream`];
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>', `<< /Length ${text.length} >>\nstream\n${text}\nendstream`,
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 480 240] /Resources << /Font << /F1 4 0 R >> >> /Contents 7 0 R >>',
+    `<< /Length ${second.length} >>\nstream\n${second}\nendstream`];
   let pdf = '%PDF-1.4\n'; const offsets = [0];
   objects.forEach((object, i) => { offsets.push(Buffer.byteLength(pdf)); pdf += `${i + 1} 0 obj\n${object}\nendobj\n`; });
   const xref = Buffer.byteLength(pdf);
-  pdf += `xref\n0 6\n0000000000 65535 f \n${offsets.slice(1).map(n => String(n).padStart(10, '0') + ' 00000 n ').join('\n')}\ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.slice(1).map(n => String(n).padStart(10, '0') + ' 00000 n ').join('\n')}\ntrailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
   return Buffer.from(pdf);
 }
 for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort + 1, '单用户演示', false], [basePort + 2, '服务乙', true]]) {
   const tokens = new Map(), materials = new Map(), sessions = new Map(), personal = new Map();
+  const passwords = new Map(), displays = new Map();
+  let messageSequence = 0;
   const role = values['user-models'] ? 'user' : 'admin';
   const userFor = req => {
     if (!enabled) return 'local-admin';
@@ -39,7 +44,7 @@ for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort +
     const body = Buffer.concat(chunks);
     if (path === '/api/auth/login') {
       const data = JSON.parse(body.toString() || '{}');
-      if (!['demo', 'other'].includes(data.username) || data.password !== 'demo-pass') return json({ detail: 'Invalid fixture login' }, 401);
+      if (!['demo', 'other'].includes(data.username) || data.password !== (passwords.get(data.username) || 'demo-pass')) return json({ detail: 'Invalid fixture login' }, 401);
       const token = randomUUID(); tokens.set(token, data.username);
       return json({ ok: true, user_id: data.username, username: data.username, role }, 200, { 'Set-Cookie': `dt_token=${token}; Path=/; HttpOnly; SameSite=Lax` });
     }
@@ -48,6 +53,30 @@ for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort +
     const user = userFor(req);
     if (!user) return json({ detail: 'Not authenticated' }, 401);
     const owner = `${user}:${req.headers['x-deeptutor-workspace'] || ''}`;
+    if (path === '/api/auth/profile') return json({ id: user, username: user, role, can_change_password: enabled, must_change_password: false });
+    if (path === '/api/auth/profile/learner-profile') return json({ detail: 'Learner profile required' }, 403);
+    if (path === '/api/auth/profile/password' && req.method === 'PUT') {
+      const data = JSON.parse(body.toString());
+      if (data.current_password !== (passwords.get(user) || 'demo-pass')) return json({ detail: 'Current password is incorrect' }, 400);
+      if (data.new_password.length < 8 || data.current_password === data.new_password) return json({}, 422);
+      passwords.set(user, data.new_password); return json({ ok: true });
+    }
+    if (path === '/api/settings/display') return json(displays.get(user) || { content_font_scale: 100, content_line_spacing: 'normal' });
+    if (path === '/api/settings/ui' && req.method === 'PUT') { const data = JSON.parse(body.toString()); displays.set(user, data); return json(data); }
+    const threadMatch = /^\/api\/sessions\/([^/]+)\/threads$/.exec(path);
+    if (threadMatch) return json({ threads: [...sessions.values()].filter(s => s.owner === owner && s.preferences.parent_session_id === threadMatch[1]) });
+    const organizationMatch = /^\/api\/sessions\/([^/]+)\/(organization|branch-selection)$/.exec(path);
+    if (organizationMatch) {
+      const session = sessions.get(organizationMatch[1]);
+      if (!session || session.owner !== owner) return json({},404);
+      const data = JSON.parse(body.toString() || '{}');
+      Object.assign(session.preferences, data);
+      return json({ session, selected_branches: data.selected_branches });
+    }
+    if (path === '/api/documents/flashcards/export' || path === '/api/documents/fixture-note/flashcards/export') { res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('#separator:tab\n#html:true\n3×4等于几？\t12\n'); }
+    if (path === '/api/documents/fixture-note') return json({ id: 'fixture-note', title: '闪卡导出演示', content: '', version: 1, blocks: [{ id: 'cards', type: 'learning', props: { kind: 'flashcards', data: JSON.stringify({ cards: [{ front: '3×4等于几？', back: '12' }] }) } }] });
+    if (path === '/api/documents/fixture-note/suggestions') return json({ suggestions: [] });
+    if (path === '/api/documents') return json({ documents: [{ id: 'fixture-note', title: '闪卡导出演示', preview: '仅供测试，不是真实学习资料' }] });
     const modelState = personal.get(user) || { profiles: [], active: null };
     const providers = [{ value: 'custom', label: 'Custom (OpenAI API)', base_url: 'https://api.example.com/v1', api_formats: ['auto', 'openai_chat'] }, { value: 'deepseek', label: 'DeepSeek', base_url: 'https://api.example.com/v1', api_formats: ['auto', 'openai_chat'] }];
     const publicModels = () => ({ ...modelState, profiles: modelState.profiles.map(({ api_key, ...p }) => ({ ...p, has_key: !!api_key })), providers });
@@ -79,7 +108,9 @@ for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort +
     }
     if (req.method !== 'GET' && !(req.method === 'POST' && path === '/api/reading/materials') && !(req.method === 'PUT' && path === '/api/reading/materials/fixture-pdf/position'))
       return json({ detail: 'This write is not implemented by the local fixture' }, 404);
-    const document = { material_id: 'fixture-pdf', title: `${label} / ${user} · PDF演示`, filename: 'fixture.pdf', render_mode: 'pdf', has_raw_view: true, unit_count: 1, unit: 'page', revision: 1, status: 'ready' };
+    const document = { material_id: 'fixture-pdf', title: `${label} / ${user} · PDF演示`, filename: 'fixture.pdf', render_mode: 'pdf', has_raw_view: true, unit_count: 2, unit: 'page', revision: 1, status: 'ready' };
+    if (path === '/api/capabilities/registered') return json({ capabilities: ['chat','deep_question','video_lesson','math_animator'].map(id => ({ id, available: true })) });
+    if (path === '/api/personas') return json({ personas: [{ name: 'teacher' }, { name: 'peer' }] });
     if (path === '/api/reading/library/materials') return json({ materials: [document] });
     if (path === '/api/reading/workspaces') return json({ workspaces: [] });
     if (path === '/api/reading/supported-formats') return json({ extensions: ['.pdf', '.docx', '.txt'] });
@@ -134,8 +165,17 @@ for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort +
         const data = Buffer.from(buffer.subarray(offset, offset + n)); if (mask) for (let i = 0; i < data.length; i++) data[i] ^= key[i % 4];
         buffer = buffer.subarray(offset + n); if (opcode === 8) { socket.end(Buffer.from([0x88, 0])); return; } if (opcode !== 1) continue;
         const value = JSON.parse(data.toString()); if (value.type !== 'start_turn') continue;
-        const id = randomUUID(), answer = `${label} / ${user}：已收到测试问题。这是流式协议演示，不是模型答案。${value.llm_selection ? `\n收到模型 ID：${value.llm_selection.model_id}` : ''}`;
-        sessions.set(id, { id, owner: `${user}:${req.headers['x-deeptutor-workspace'] || ''}`, title: '虚拟测试对话', preferences: { llm_selection: value.llm_selection }, messages: [{ id: 'u', role: 'user', content: value.content }, { id: 'a', role: 'assistant', content: answer }] });
+        if (String(value.content).includes('fixture-reject')) { send({ type: 'protocol_error', message: '模拟拒绝：本次未保存，可修改后重试。' }); continue; }
+        const id = value.session_id || randomUUID(), answer = `${label} / ${user}：已收到测试问题。这是流式协议演示，不是模型答案。${value.llm_selection ? `\n收到模型 ID：${value.llm_selection.model_id}` : ''}`;
+        const owner = `${user}:${req.headers['x-deeptutor-workspace'] || ''}`;
+        const previous = sessions.get(id);
+        if (previous && previous.owner !== owner) { send({ type: 'error', content: 'Not found' }); continue; }
+        const parent = Object.hasOwn(value,'parent_message_id') ? value.parent_message_id : previous?.messages.at(-1)?.id || null;
+        const userId = ++messageSequence, assistantId = ++messageSequence;
+        const preferences = { ...previous?.preferences, llm_selection: value.llm_selection };
+        if (value.selection_tutor_context) Object.assign(preferences, { parent_session_id: value.selection_tutor_context.parent_session_id, session_kind: 'selection_tutor', tutor_source_message_id: value.selection_tutor_context.quoted_message_id });
+        const message = { id: assistantId, parent_message_id: userId, role: 'assistant', content: answer, attachments: [{ type: 'file', filename: '演示资料.pdf', mime_type: 'application/pdf', url: '/api/reading/materials/fixture-pdf/raw', generated: true }] };
+        sessions.set(id, { id, owner, title: '虚拟测试对话', preferences, messages: [...(previous?.messages || []), { id: userId, parent_message_id: parent, role: 'user', content: value.content }, message] });
         send({ type: 'content', content: answer.slice(0, 12), session_id: id, seq: 1 });
         setTimeout(() => { if (!socket.destroyed) {
           send({ type: 'content', content: answer.slice(12), session_id: id, seq: 2 });
@@ -145,7 +185,7 @@ for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort +
             { render_type: 'mermaid', code: 'graph TD\nA[Start]-->B[Learn]' },
             { render_type: 'chartjs', code: JSON.stringify({ type: 'bar', data: { labels: ['A', 'B'], datasets: [{ label: 'Fixture', data: [2, 3] }] } }) },
             ] } };
-            sessions.get(id).messages[1].events = [event];
+            message.events = [event];
             send(event);
           }
           send({ type: 'done', session_id: id, seq: 4 });

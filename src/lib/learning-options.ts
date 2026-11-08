@@ -5,6 +5,18 @@ export type Capability = {
 };
 export type Persona = { name: string };
 export type KnowledgeBase = { name: string; id?: string };
+export type ChatOptions = { capability: string; persona: string; config: Record<string, unknown>; knowledge_bases: string[] };
+
+// Context also holds mutable reading/tutor source anchors and model choices.
+// Keep those out of the options overlay so an old snapshot cannot undo an edit.
+export function mergeChatOptions(defaults: ChatOptions, source: Record<string, unknown>): ChatOptions {
+  return {
+    capability: typeof source.capability === "string" ? source.capability : defaults.capability,
+    persona: typeof source.persona === "string" ? source.persona : defaults.persona,
+    config: record(source.config) ? source.config : defaults.config,
+    knowledge_bases: Array.isArray(source.knowledge_bases) ? source.knowledge_bases.filter((v): v is string => typeof v === "string") : defaults.knowledge_bases,
+  };
+}
 
 const record = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);

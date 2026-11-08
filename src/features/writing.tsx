@@ -1,4 +1,5 @@
 import { documentPreview } from "../lib/learning-records";
+import { pageHasFlashcards } from "../lib/chat-actions";
 import { NativeBlocks, inlineText, replaceBlock } from "./blocks";
 import { ExportFile } from "./export";
 import * as DocumentPicker from "expo-document-picker";
@@ -87,6 +88,7 @@ export function Writing({ id = "" }: { id?: string }) {
       {!id ? (
         <>
           <Button title="新建文章" onPress={() => setEdit(true)} />
+          <ExportFile path="/api/documents/flashcards/export" filename="我的闪卡-Anki.txt" mime="text/plain" title="导出全部闪卡到 Anki" />
           <Button
             title="导入 Word 文档"
             secondary
@@ -148,6 +150,7 @@ export function Writing({ id = "" }: { id?: string }) {
             )}
           </View>
           <Actions>
+            {pageHasFlashcards(d.blocks) ? <ExportFile path={`/api/documents/${enc(id)}/flashcards/export`} filename={`${d.title}-Anki.txt`} mime="text/plain" title="导出闪卡到 Anki" /> : null}
             <ExportFile
               path="/api/documents/export/docx"
               filename={`${d.title}.docx`}

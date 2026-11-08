@@ -27,8 +27,11 @@ if os.name != 'nt' and signing.stat().st_mode & 0o077:
 env['DTM_SIGNING_PROPERTIES'] = str(signing.resolve())
 run(['node', 'scripts/source-check.mjs'], env)
 run(['node', 'node_modules/expo/bin/cli', 'prebuild', '--platform', 'android', '--no-install'], env)
+gradle_memory = env.get('DTM_GRADLE_JVM_ARGS')
 run(['gradlew.bat' if os.name == 'nt' else './gradlew', ':app:assembleRelease',
-     f'-PreactNativeArchitectures={args.arch}', '--console=plain', '--quiet'], env, cwd=ROOT / 'android')
+     f'-PreactNativeArchitectures={args.arch}',
+     *([f'-Dorg.gradle.jvmargs={gradle_memory}'] if gradle_memory else []),
+     '--console=plain', '--quiet'], env, cwd=ROOT / 'android')
 apk = ROOT / 'android/app/build/outputs/apk/release/app-release.apk'
 build_tools = sorted((Path(env['ANDROID_HOME']) / 'build-tools').glob('*'),
                      key=lambda p: [int(n) for n in re.findall(r'\d+', p.name)])[-1]

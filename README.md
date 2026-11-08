@@ -10,12 +10,12 @@
 
 ## 下载与安装
 
-**0.3.0-preview.3**：[发布说明与校验信息](https://github.com/TinyPandaGame/deeptutor-mobile/releases/tag/v0.3.0-preview.3)。
+**0.3.0-preview.4**：[发布说明与校验信息](https://github.com/TinyPandaGame/deeptutor-mobile/releases/tag/v0.3.0-preview.4)。
 
 | 平台 | 交付形式 | 使用方式 |
 | --- | --- | --- |
-| Android | [下载 APK（arm64）](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.0-preview.3/deeptutor-mobile-0.3.0-preview.3-arm64-v8a.apk) | 安装后填写自己的服务地址；无需开发环境 |
-| iOS | [下载 Xcode 工程 ZIP](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.0-preview.3/deeptutor-mobile-0.3.0-preview.3-ios-project.zip) | 需要 Mac、Xcode、Node.js、Python 3、CocoaPods 及自己的签名；不是可直接安装的 IPA |
+| Android | [下载 APK（arm64）](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.0-preview.4/deeptutor-mobile-0.3.0-preview.4-arm64-v8a.apk) | 安装后填写自己的服务地址；无需开发环境 |
+| iOS | [下载 Xcode 工程 ZIP](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.0-preview.4/deeptutor-mobile-0.3.0-preview.4-ios-project.zip) | 需要 Mac、Xcode、Node.js、Python 3、CocoaPods 及自己的签名；不是可直接安装的 IPA |
 
 iOS 工程准备和源码开发流程见[安装与构建指南](docs/build.md)。
 

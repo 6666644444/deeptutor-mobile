@@ -2,7 +2,7 @@
 
 ## 使用发行附件
 
-`0.3.0-preview.3` 提供 [Android APK](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.0-preview.3/deeptutor-mobile-0.3.0-preview.3-arm64-v8a.apk) 与 [iOS 工程 ZIP](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.0-preview.3/deeptutor-mobile-0.3.0-preview.3-ios-project.zip)。附件校验值、签名和实际测试结果见[该版本 Release](https://github.com/TinyPandaGame/deeptutor-mobile/releases/tag/v0.3.0-preview.3)。
+`0.3.0-preview.4` 提供 [Android APK](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.0-preview.4/deeptutor-mobile-0.3.0-preview.4-arm64-v8a.apk) 与 [iOS 工程 ZIP](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.0-preview.4/deeptutor-mobile-0.3.0-preview.4-ios-project.zip)。附件校验值、签名和实际测试结果见[该版本 Release](https://github.com/TinyPandaGame/deeptutor-mobile/releases/tag/v0.3.0-preview.4)。
 
 ### Android APK
 
@@ -143,4 +143,10 @@ npm run export:source -- --output-dir <交付目录>
 
 iOS 分享扩展的 App Group 根据 bundle identifier 生成。真机发行需配置自己的 App Group、证书和 provisioning；模拟器构建通过不能替代真机验证。
 
-本版源码标签为 `v0.3.0-preview.3`，原生基础版本为 0.3.0（Android versionCode 4）。iOS 工程的提供不代表已发行 IPA 或上传 TestFlight。
+本版源码标签为 `v0.3.0-preview.4`，原生基础版本为 0.3.0（Android versionCode 5）。iOS 工程的提供不代表已发行 IPA 或上传 TestFlight。
+
+### 独立模拟器验收
+
+`python3 scripts/run-ios.py --device SIMULATOR_UDID --configuration Release` 会嵌入程序资源，适合完全关闭后重开验收，不依赖 Metro。默认 Debug 仍用于开发热重载；不能以 Debug 的开发入口代替独立安装验收。
+
+Android 若 Kotlin 编译报告 `OutOfMemoryError: Metaspace`，可以为构建命令设置 `DTM_GRADLE_JVM_ARGS="-Xmx4096m -XX:MaxMetaspaceSize=1024m"`。此设置只影响本机构建，不改变应用运行内存。

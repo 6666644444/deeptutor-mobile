@@ -126,6 +126,28 @@ export class TutorClient {
     })();
     return this.renewal;
   }
+  async changePassword(currentPassword: string, newPassword: string): Promise<SavedLogin> {
+    if (this.mode !== "account" || !this.credentials || !this.user) throw new ApiError("免登录空间没有账号密码。");
+    if (Array.from(newPassword).length < 8) throw new ApiError("新密码至少需要 8 位。");
+    if (currentPassword === newPassword) throw new ApiError("新密码需要与当前密码不同。");
+    await this.ensureSession();
+    await this.consume("/api/auth/profile/password", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+    }, async response => {
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        const message = body.detail === "Current password is incorrect" ? "当前密码不正确，请重新输入。"
+          : response.status === 403 ? "当前服务不允许在这里修改密码。"
+          : response.status === 401 ? "登录已失效，请重新登录后修改。"
+          : `暂未修改密码（${response.status}），请重试。`;
+        throw new ApiError(message, response.status);
+      }
+    }, 25000);
+    this.assertOpen();
+    this.credentials = { username: this.credentials.username, password: newPassword };
+    return { ...this.credentials, origin: this.config.origin, user: this.user, token: this.token, workspaceId: this.workspaceId };
+  }
   async ensureSession() {
     const state = await this.status();
     if (state.enabled !== (this.mode === "account")) {

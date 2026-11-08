@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and run a Debug app on one explicit simulator, using ad-hoc signing."""
+"""Build and run a Debug or standalone Release app on an explicit simulator."""
 import argparse
 import json
 from pathlib import Path
@@ -12,6 +12,7 @@ parser.add_argument('--list-devices', action='store_true')
 parser.add_argument('--build-only', action='store_true')
 parser.add_argument('--launch-only', action='store_true')
 parser.add_argument('--port', type=port, default=8086)
+parser.add_argument('--configuration', choices=['Debug', 'Release'], default='Debug')
 parser.add_argument('--derived-data', type=Path, default=ROOT / 'artifacts/ios-simulator')
 args = parser.parse_args()
 env = xcode_environment()
@@ -29,7 +30,7 @@ if not device:
 if args.build_only and args.launch_only:
     parser.error('--build-only and --launch-only cannot be combined')
 require_dependencies()
-if not args.build_only:
+if not args.build_only and args.configuration == 'Debug':
     require_metro(args.port)
 derived = args.derived_data.resolve()
 if not args.launch_only:
@@ -45,10 +46,10 @@ if not args.launch_only:
     # Xcode supplies simulator-specific entitlements. Disabling signing breaks
     # Keychain; manually adding device entitlements is not a valid substitute.
     run(['xcodebuild', '-workspace', workspace, '-scheme', workspace.stem,
-         '-configuration', 'Debug', '-destination', f'platform=iOS Simulator,id={args.device}',
+         '-configuration', args.configuration, '-quiet', '-destination', f'platform=iOS Simulator,id={args.device}',
          '-derivedDataPath', derived, 'CODE_SIGN_IDENTITY=-', 'CODE_SIGNING_ALLOWED=YES',
          'DEVELOPMENT_TEAM=', 'PROVISIONING_PROFILE_SPECIFIER=', 'CODE_SIGN_STYLE=Manual', 'build'], env)
-apps = list((derived / 'Build/Products/Debug-iphonesimulator').glob('*.app'))
+apps = list((derived / f'Build/Products/{args.configuration}-iphonesimulator').glob('*.app'))
 if len(apps) != 1:
     raise SystemExit('Expected one simulator app; rebuild without --launch-only.')
 print(apps[0])
@@ -59,4 +60,4 @@ if not args.build_only:
     run(['xcrun', 'simctl', 'install', args.device, apps[0]], env)
     package = app_config(env)['ios']['bundleIdentifier']
     run(['xcrun', 'simctl', 'launch', '--terminate-running-process', args.device, package,
-         '-RCT_jsLocation', f'127.0.0.1:{args.port}'], env)
+         *(['-RCT_jsLocation', f'127.0.0.1:{args.port}'] if args.configuration == 'Debug' else [])], env)

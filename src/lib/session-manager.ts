@@ -136,6 +136,21 @@ export class SessionManager {
     if (!saved || saved.origin !== config.origin || saved.user.user_id !== api.user?.user_id) throw new ApiError("请重新登录。");
     return saved;
   }
+  async changePassword(currentPassword: string, newPassword: string) {
+    const client = this.snapshot.api;
+    const epoch = this.epoch;
+    if (!client) throw new ApiError("请先登录。");
+    const saved = await client.changePassword(currentPassword, newPassword);
+    this.current(epoch, client);
+    try {
+      await this.saveLogin(saved, epoch);
+      this.current(epoch, client);
+    } catch {
+      // Never leave an old auto-login password after a successful server change.
+      if (epoch === this.epoch) await this.logout(true);
+      throw new ApiError("服务器密码已修改，但本机登录记录未能保存。请用新密码重新登录。");
+    }
+  }
   async setWorkspace(workspaceId: string) {
     const old = this.snapshot.api;
     if (!old || old.workspaceId === workspaceId) return;

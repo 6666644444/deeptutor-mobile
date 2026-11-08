@@ -1,10 +1,14 @@
 # 原生客户端功能对应核查
 
-核查基线：官方 [DeepTutor v1.7.1](https://github.com/HKUDS/DeepTutor/tree/v1.7.1)，提交 `f7aed0744c36c5afef16a4261c31ebee1208cac2`。日期：2026-11-02。
+核查基线：官方 [DeepTutor v1.7.1](https://github.com/HKUDS/DeepTutor/tree/v1.7.1)，提交 `f7aed0744c36c5afef16a4261c31ebee1208cac2`。首次核查：2026-11-02；v1.7.1 差异补齐：2026-11-08。
 
 结论：客户端目前不是完整功能等价版。下面覆盖官方仓库的 63 个 page.tsx 路由文件，并对照原生实现和模型调用链；这是源码与接口核查，不代表每个页面的每个按钮都已完成运行验收。路由存在、构建通过或模拟接口返回成功，都不能单独作为功能完成证明。
 
-## 本次修复的调用链
+## v1.7.1 本轮补齐
+
+详见 [v1.7.1 差异对应](upstream-1.7.1.md)。新增账号改密及自动登录凭据同步、账号字号/行距、聊天及学习创建草稿、保留历史分支的编辑重问、单独追问来源管理、生成文件查看/分享、Anki 闪卡导出。仍不能把本轮差异适配称为全部 63 路由功能等价。
+
+## 既有模型调用链
 
 - 对话输入区 → 切换模型 → 读取服务端模型列表 → 新一轮 `start_turn.llm_selection` 提交真实 profile/model ID；恢复历史时读取 preferences.llm_selection。
 - 切回默认时重新查询并发送具体默认 ID，避免官方服务端将 null 解释为沿用历史选择。
@@ -37,10 +41,10 @@
 | `/notebooks/[notebookId]` | 部分对应 | `src/features/notebooks.tsx` | 收藏夹/记录编辑移动导出有实现；全部批量与附件场景待测 |
 | `/notebooks` | 部分对应 | `src/features/notebooks.tsx` | 收藏夹/记录编辑移动导出有实现；全部批量与附件场景待测 |
 | `/personalization` | 缺少对应入口 | — | 账户资料、偏好完整编辑未对应 |
-| `/profile` | 缺少对应入口 | — | 账户资料、偏好完整编辑未对应 |
+| `/profile` | 部分对应 | `src/features/profile.tsx` | 账号信息、改密、初始密码提示及已授权学习资料编辑；头像及完整偏好编辑仍有缺口 |
 | `/session-handoff` | 缺少对应入口 | — | 设备授权交接流程未对应 |
 | `/settings/progress` | 部分对应 | `src/app/(tabs)/me.tsx; src/features/models.tsx; src/features/workspaces.tsx` | 设置子页逐项见下表 |
-| `/space/chat-history` | 部分对应 | `src/app/chat/[id].tsx; src/app/history.tsx` | 本次补模型切换、历史模型恢复；缺少按会话指定 skills/MCP、完整归档操作 |
+| `/space/chat-history` | 部分对应 | `src/app/chat/[id].tsx; src/app/history.tsx` | 模型切换、草稿、编辑分支与单独追问来源有对应；缺少按会话指定 skills/MCP、完整归档操作 |
 | `/space/cli-apps` | 缺少对应入口 | — | 需实现并验收 |
 | `/space/journal` | 缺少对应入口 | — | 需实现并验收 |
 | `/space/mcp` | 缺少对应入口 | — | 需实现并验收 |
@@ -49,10 +53,10 @@
 | `/space/questions` | 部分对应 | `src/app/(tabs)/mistakes.tsx; src/app/question/[id].tsx` | 错题列表、编辑、复习对话；全部筛选/批量管理未逐项实测 |
 | `/space/skills` | 缺少对应入口 | — | 需实现并验收 |
 | `/calendar` | 部分对应 | `src/features/calendar.tsx` | 事件、分类、重复、ICS导出；系统通知未实现 |
-| `/chat/[sessionId]` | 部分对应 | `src/app/chat/[id].tsx; src/app/history.tsx` | 本次补模型切换、历史模型恢复；缺少按会话指定 skills/MCP、完整归档操作 |
-| `/chat` | 部分对应 | `src/app/chat/[id].tsx; src/app/history.tsx` | 本次补模型切换、历史模型恢复；缺少按会话指定 skills/MCP、完整归档操作 |
-| `/co-writer/[docId]` | 部分对应 | `src/features/writing.tsx` | 文档块、建议、Word导入导出；锚点讨论及部分评审卡片缺口 |
-| `/co-writer` | 部分对应 | `src/features/writing.tsx` | 文档块、建议、Word导入导出；锚点讨论及部分评审卡片缺口 |
+| `/chat/[sessionId]` | 部分对应 | `src/app/chat/[id].tsx; src/app/history.tsx` | 模型切换、草稿、编辑分支与单独追问来源有对应；缺少按会话指定 skills/MCP、完整归档操作 |
+| `/chat` | 部分对应 | `src/app/chat/[id].tsx; src/app/history.tsx` | 模型切换、草稿、编辑分支与单独追问来源有对应；缺少按会话指定 skills/MCP、完整归档操作 |
+| `/co-writer/[docId]` | 部分对应 | `src/features/writing.tsx` | 文档块、建议、Word与Anki导出；锚点讨论及部分评审卡片缺口 |
+| `/co-writer` | 部分对应 | `src/features/writing.tsx` | 文档块、建议、Word与Anki导出；锚点讨论及部分评审卡片缺口 |
 | `/kanban` | 缺少对应入口 | — | 需实现并验收 |
 | `/learning/books/[bookId]` | 部分对应 | `src/features/books.tsx` | 生成、页块编辑、题卡、导出有实现；全部块类型/生成组合未逐项实测 |
 | `/learning/books/[bookId]/pages/[pageId]` | 部分对应 | `src/features/books.tsx` | 生成、页块编辑、题卡、导出有实现；全部块类型/生成组合未逐项实测 |
@@ -90,7 +94,7 @@
 | 服务商、LLM、后台任务 | 本次新增原生编辑；模型发现/密钥替换/选择有对应调用。普通账号使用个人 LLM 扩展。OAuth 登录、完整推理参数、批量配置导入导出仍未对应。 |
 | 向量、搜索、语音、多模态 | 管理员有模型服务编辑；搜索配置创建/编辑、多模态专属完整参数、语音自动播放偏好未全部对应。 |
 | 工作区 | 原生切换、创建、编辑、归档有实现，账号与服务隔离保留。 |
-| 常规、外观、资料、用量 | 中文原生界面是客户端设定；不能算作官方设置页完整移植。用量统计、资料编辑缺入口。 |
+| 常规、外观、资料、用量 | 中文原生界面；字号/行距、密码及授权学习资料有对应。用量统计、头像及完整偏好仍缺入口。 |
 | 对话建议、附件上限、视频学习、学习者资料、学习进度 | 有相关学习界面，但对应设置管理未齐。 |
 | Guardian 家长控制 | 未移植；客户端使用服务端账号登录。 |
 | 记忆 | 分层文档与任务有对应，记忆策略设置未齐。 |

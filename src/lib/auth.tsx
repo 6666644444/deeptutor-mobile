@@ -19,6 +19,7 @@ const useValue = () => {
     restore: () => state.config ? manager.connect(state.config, false) : manager.start(),
     login: (username: string, password: string) => manager.login(username, password),
     logout: () => manager.logout(),
+    changePassword: (currentPassword: string, newPassword: string) => manager.changePassword(currentPassword, newPassword),
     connect: manager.connect.bind(manager),
     editConnections: () => manager.editConnections(),
     forget: (origin: string) => manager.forget(origin),

@@ -10,6 +10,8 @@ import { Mastery } from "../features/mastery";
 import { Books } from "../features/books";
 import { Explore } from "../features/capabilities";
 import { Workspaces } from "../features/workspaces";
+import { Profile } from "../features/profile";
+import { DisplaySettings } from "../features/display-settings";
 export default function Feature() {
   const p = useLocalSearchParams<{
     area: string;
@@ -20,6 +22,10 @@ export default function Feature() {
     capability?: string;
   }>();
   switch (p.area) {
+    case "profile":
+      return <Profile />;
+    case "display":
+      return <DisplaySettings />;
     case "reading":
       return (
         <Reading key={p.id + p.material!} id={p.id} material={p.material} />
@@ -43,6 +49,6 @@ export default function Feature() {
     case "workspaces":
       return <Workspaces />;
     default:
-      return <Explore capability={p.capability} />;
+      return <Explore key={p.capability || "chat"} capability={p.capability} />;
   }
 }

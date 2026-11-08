@@ -64,6 +64,8 @@ export default function Me() {
       <Row title={config?.kind === "computer" ? "我的电脑" : "我的服务器"} detail={config?.origin} icon="server-outline" onPress={editConnections} />
       <Button title="管理或更换服务" secondary onPress={editConnections} />
       <Section title="登录与隐私" />
+      <Row title="账号与学习资料" detail="查看资料、修改密码" icon="person-outline" onPress={() => feature("profile")} />
+      <Row title="阅读显示" detail="调整讲解字号与行间距" icon="text-outline" onPress={() => feature("display")} />
       <View style={[s.card, { gap: 10 }]}>
         <Text style={s.rowTitle}>{api?.mode === "anonymous" ? "此服务未启用账号认证" : "已安全记住登录"}</Text>
         <Text style={s.muted}>

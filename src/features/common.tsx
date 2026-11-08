@@ -27,6 +27,8 @@ import { TutorClient } from "../lib/client";
 import { chatDraft } from "../lib/drafts";
 import { MathProse } from "./math";
 import { hasMath } from "../lib/math-markup";
+import { useLearningDisplay } from "../lib/learning-display-context";
+import { learningTextStyle } from "../lib/learning-display";
 
 export const enc = encodeURIComponent;
 export function feature(
@@ -263,6 +265,7 @@ export function SmallAction({
 // Markdown stays native Text: headings, lists, code and quotations keep selection.
 // HTML is never evaluated here and server content cannot navigate the app.
 export function Prose({ text }: { text: unknown }) {
+  const { value: display } = useLearningDisplay();
   if (typeof text !== "string" || !text.trim()) return null;
   if (hasMath(text)) return <MathProse text={text} />;
   return (
@@ -275,7 +278,8 @@ export function Prose({ text }: { text: unknown }) {
             selectable
             style={[
               s.text,
-              h && { fontWeight: "700", fontSize: h[1].length < 3 ? 21 : 18 },
+              learningTextStyle(display, h ? (h[1].length < 3 ? 21 : 18) : 16),
+              h && { fontWeight: "700" },
               line.startsWith(">") && {
                 color: C.muted,
                 borderLeftWidth: 3,

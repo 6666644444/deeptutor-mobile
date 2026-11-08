@@ -10,6 +10,7 @@ import { useAuth } from "../lib/auth";
 import { temporaryBytes } from "../lib/temporary-files";
 import { Button, C, Field, s } from "../ui";
 import { Chips, Prose, SmallAction } from "./common";
+import { GeneratedFile } from "./generated-file";
 export type Data = Record<string, unknown>;
 export function object(value: unknown): Data {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -183,6 +184,7 @@ export function Content({
     string(d.explanation);
   const media = string(d.video_url) || string(d.audio_url);
   const image = string(d.image_url);
+  const fileUrl = string(d.file_url) || string(d.download_url);
   const children =
     d.subsections ||
     d.sections ||
@@ -231,6 +233,7 @@ export function Content({
       {image ? (
         <ProtectedMedia kind="image" url={image} />
       ) : null}
+      {fileUrl ? <GeneratedFile url={fileUrl} filename={string(d.filename) || string(d.name)} mime={string(d.mime_type) || undefined} /> : null}
       {children ? (
         <Content value={children} onAnswer={onAnswer} depth={depth + 1} />
       ) : null}
@@ -242,7 +245,7 @@ export function Content({
           <ProtectedMedia kind="audio" key={i} url={url} />
         ) : url && mime.startsWith("video/") ? (
           <ProtectedMedia kind="video" key={i} url={url} />
-        ) : null;
+        ) : url ? <GeneratedFile key={i} url={url} filename={string(item.filename) || string(item.title)} mime={mime || undefined} /> : null;
       })}
       {d.payload ? (
         <Content value={d.payload} onAnswer={onAnswer} depth={depth + 1} />

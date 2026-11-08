@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Text, View } from "react-native";
 import { useResource } from "../lib/resources";
 import { useAuth } from "../lib/auth";
+import { useComposerDraft } from "../lib/use-composer-draft";
+import { mergeChatOptions } from "../lib/learning-options";
 import type {
   Capability,
   KnowledgeBase,
@@ -306,6 +308,10 @@ export function Explore({ capability = "" }: { capability?: string }) {
   );
   const [show, setShow] = useState(false);
   const [prompt, setPrompt] = useState("");
+  const draft = useComposerDraft(api, `create:${capability || "chat"}`, false, { text: prompt, document: null, context: options }, value => {
+    setPrompt(value.text);
+    setOptions(mergeChatOptions(defaultOptions(capability || "chat"), value.context));
+  });
   const r = useResource<{ capabilities: Capability[] }>(
     "/api/capabilities/registered",
   );
@@ -319,7 +325,8 @@ export function Explore({ capability = "" }: { capability?: string }) {
       <Field
         label="今天想学什么"
         value={prompt}
-        onChangeText={setPrompt}
+        onChangeText={text => { draft.edited(); setPrompt(text); }}
+        editable={draft.ready}
         multiline
         placeholder="例如：四年级数学，小数的意义，先出 3 道基础题看看我掌握得怎样。"
       />
@@ -331,10 +338,11 @@ export function Explore({ capability = "" }: { capability?: string }) {
         />
         <Button
           title="开始学习"
-          disabled={!prompt.trim()}
+          disabled={!draft.ready || !prompt.trim()}
           onPress={() => api && ask(api, prompt, options)}
         />
       </Actions>
+      {draft.error ? <Text style={s.muted}>草稿：{draft.error}</Text> : null}
       <ResourceState resource={r} />
       <Section title="更多学习方式" />
       {!r.loading &&

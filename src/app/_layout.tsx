@@ -9,6 +9,7 @@ import Connect from "./connect";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ShareObserver } from "../lib/share-observer";
 import { OtaNotice } from "../components/OtaNotice";
+import { LearningDisplayProvider } from "../lib/learning-display-context";
 function Routes() {
   const { api, user, booting, bootError, restore, editConnections, needsConnection } = useAuth();
   if (needsConnection && !booting) return <Connect />;
@@ -72,11 +73,13 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <KeyboardProvider>
       <AuthProvider>
+        <LearningDisplayProvider>
         <StatusBar style="dark" />
         <OtaNotice />
         <SafeAreaProvider>
           <Routes />
         </SafeAreaProvider>
+        </LearningDisplayProvider>
       </AuthProvider>
       </KeyboardProvider>
     </SafeAreaProvider>
