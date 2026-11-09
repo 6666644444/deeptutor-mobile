@@ -878,10 +878,10 @@
     },
     {
       "package": "@expo/schema-utils",
-      "version": "57.0.2",
+      "version": "57.0.3",
       "license": "MIT",
       "developmentOnly": false,
-      "resolved": "https://registry.npmjs.org/@expo/schema-utils/-/schema-utils-57.0.2.tgz"
+      "resolved": "https://registry.npmjs.org/@expo/schema-utils/-/schema-utils-57.0.3.tgz"
     },
     {
       "package": "@expo/sdk-runtime-versions",
@@ -3311,6 +3311,13 @@
       "license": "MIT",
       "developmentOnly": false,
       "resolved": "https://registry.npmjs.org/expo-audio/-/expo-audio-57.0.5.tgz"
+    },
+    {
+      "package": "expo-build-properties",
+      "version": "57.0.23",
+      "license": "MIT",
+      "developmentOnly": false,
+      "resolved": "https://registry.npmjs.org/expo-build-properties/-/expo-build-properties-57.0.23.tgz"
     },
     {
       "package": "expo-constants",

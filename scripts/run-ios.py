@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 import shutil
 from dev_tools import ROOT, app_config, port, require_dependencies, require_metro, run, xcode_environment
+from ios_startup import verify_app, verify_project
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--device', help='Exact iOS simulator UDID; never auto-select a device')
@@ -37,6 +38,7 @@ if not args.launch_only:
     if not shutil.which('pod'):
         raise SystemExit('Install CocoaPods, then run this command again.')
     run(['node', 'node_modules/expo/bin/cli', 'prebuild', '--platform', 'ios', '--no-install'], env)
+    verify_project(ROOT)
     run(['pod', 'install', '--project-directory=ios'], env)
 workspaces = list((ROOT / 'ios').glob('*.xcworkspace'))
 if len(workspaces) != 1:
@@ -52,6 +54,7 @@ if not args.launch_only:
 apps = list((derived / f'Build/Products/{args.configuration}-iphonesimulator').glob('*.app'))
 if len(apps) != 1:
     raise SystemExit('Expected one simulator app; rebuild without --launch-only.')
+verify_app(apps[0])
 print(apps[0])
 if not args.build_only:
     if device['state'] != 'Booted':

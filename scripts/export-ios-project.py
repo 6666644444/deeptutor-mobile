@@ -8,6 +8,7 @@ import tempfile
 import zipfile
 from dev_tools import ROOT, require_dependencies, run
 from release_tools import audit_archive, public_environment, receipt, version
+from ios_startup import verify_project
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--output-dir', type=Path, required=True)
@@ -31,6 +32,7 @@ with tempfile.TemporaryDirectory(prefix='dtm-ios-project-') as temporary:
         shutil.copy2(ROOT / name, target)
     (project / 'node_modules').symlink_to(ROOT / 'node_modules', target_is_directory=True)
     run(['node', ROOT / 'node_modules/expo/bin/cli', 'prebuild', '--platform', 'ios', '--no-install'], env, cwd=project)
+    verify_project(project)
     (project / 'node_modules').unlink()
     # CocoaPods creates the Pods entry when the recipient runs prepare:ios.
     native = next((project / 'ios').glob('*.xcodeproj'))

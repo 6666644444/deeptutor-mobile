@@ -143,10 +143,24 @@ npm run export:source -- --output-dir <交付目录>
 
 iOS 分享扩展的 App Group 根据 bundle identifier 生成。真机发行需配置自己的 App Group、证书和 provisioning；模拟器构建通过不能替代真机验证。
 
-本版源码标签为 `v0.3.1`，原生基础版本为 0.3.0（Android versionCode 5）。iOS 工程的提供不代表已发行 IPA 或上传 TestFlight。
+本版源码版本为 `0.3.2`，原生基础版本为 0.3.2（Android versionCode / iOS buildNumber 6）。iOS 工程的提供不代表已发行 IPA 或上传 TestFlight。
 
 ### 独立模拟器验收
 
 `python3 scripts/run-ios.py --device SIMULATOR_UDID --configuration Release` 会嵌入程序资源，适合完全关闭后重开验收，不依赖 Metro。默认 Debug 仍用于开发热重载；不能以 Debug 的开发入口代替独立安装验收。
 
 Android 若 Kotlin 编译报告 `OutOfMemoryError: Metaspace`，可以为构建命令设置 `DTM_GRADLE_JVM_ARGS="-Xmx4096m -XX:MaxMetaspaceSize=1024m"`。此设置只影响本机构建，不改变应用运行内存。
+
+### iOS 27 启动兼容
+
+本版通过 Expo SDK 57 官方 `expo-build-properties` 的 `ios.enableSceneSupport` 启用 UIScene。使用 Xcode 27 时不能回退到旧 AppDelegate 启动方式，否则 iOS/iPadOS 27 会在启动时终止应用。
+
+`run-ios.py` 和 `export-ios-project.py` 会检查生成的场景配置及工厂协议。归档或导出后还需核对实际 `.app`：
+
+```sh
+python3 scripts/ios_startup.py --app /path/to/DeepTutor.app
+```
+
+此检查防止缺配置，不能代替 iOS/iPadOS 27 上的 Release 冷启动、后台恢复、深链/分享唤起和更新后重启测试。0.3.2 修改原生启动环境，需要重新安装应用；不能将新 iOS OTA 强制推给旧 runtime。
+
+参考：[Expo SDK 57 场景迁移说明](https://github.com/expo/fyi/blob/main/ios-scene-lifecycle.md#staying-on-sdk-57-with-xcode-27)。
