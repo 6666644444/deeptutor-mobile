@@ -105,6 +105,21 @@ test('a pending service probe cannot restore after user switches away', async ()
   const m = new SessionManager(f.storage, delayed); await m.start(); const pending = m.connect(A); await m.connect(B); release(); await pending;
   assert.equal(m.snapshot.config?.origin, B.origin); assert.equal(m.snapshot.profiles.length, 1);
 });
+test('background reconnect recovers an offline session but never interrupts editing a failed service', async () => {
+  const f = fixture(), m = new SessionManager(f.storage, f.fetcher);
+  await m.start(); await m.connect(A); await m.login('demo', 'demo-pass');
+  f.offline(true); await m.connect(A, false);
+  assert.ok(m.snapshot.bootError);
+  f.offline(false); await m.retryConnection();
+  assert.equal(m.snapshot.api?.user?.username, 'demo');
+  m.editConnections(); f.offline(true); await m.connect(B, false);
+  const formState = m.snapshot, calls = f.calls.length;
+  f.offline(false); await m.retryConnection();
+  assert.equal(m.snapshot, formState);
+  assert.equal(f.calls.length, calls);
+  assert.equal(m.snapshot.needsConnection, true);
+  await m.connect(B); assert.equal(m.snapshot.config?.origin, B.origin);
+});
 test('a renewal completing during logout cannot recreate credentials', async () => {
   const f = fixture(), m = new SessionManager(f.storage, f.fetcher); await m.start(); await m.connect(A); await m.login('demo', 'demo-pass');
   const old = m.snapshot.api!; f.expire(); const renewal = old.ensureSession().catch(() => {}); await m.logout(); await renewal;

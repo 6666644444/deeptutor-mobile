@@ -104,6 +104,13 @@ export class SessionManager {
       if (throwErrors) throw e;
     }
   }
+  async retryConnection() {
+    const s = this.snapshot;
+    // The user owns the form while editing a service. Background retry must
+    // never unmount that form or put its previously failed address back.
+    if (s.needsConnection || s.booting || !s.bootError || !s.config) return;
+    await this.connect(s.config, false);
+  }
   async login(username: string, password: string) {
     const config = this.snapshot.config;
     if (!config) throw new ApiError("请先连接服务。");

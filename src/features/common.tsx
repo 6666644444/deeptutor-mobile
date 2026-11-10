@@ -18,6 +18,8 @@ import {
   Failure,
   Field,
   Heading,
+  Icon,
+  type IconName,
   Loading,
   Page,
   s,
@@ -30,6 +32,7 @@ import { hasMath } from "../lib/math-markup";
 import { readingBlocks } from "../lib/reading-content";
 import { useLearningDisplay } from "../lib/learning-display-context";
 import { learningTextStyle } from "../lib/learning-display";
+import { selectedPreset, type TextPreset } from "../lib/study-presets";
 
 export const enc = encodeURIComponent;
 export function feature(
@@ -70,22 +73,51 @@ export function Chips({
           key={i.value}
           accessibilityRole="button"
           accessibilityState={{ selected: i.value === value }}
+          accessibilityLabel={i.label}
           onPress={() => onChange(i.value)}
-          style={{
-            padding: 12,
+          style={({ pressed }) => ({
+            paddingHorizontal: 13,
+            paddingVertical: 11,
+            minHeight: 44,
+            maxWidth: "100%",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 6,
             borderRadius: 14,
-            backgroundColor: i.value === value ? C.teal : C.white,
+            backgroundColor: i.value === value ? C.pale : C.white,
             borderWidth: 1,
-            borderColor: C.line,
-          }}
+            borderColor: i.value === value ? C.teal : C.line,
+            opacity: pressed ? 0.7 : 1,
+          })}
         >
-          <Text style={{ color: i.value === value ? C.white : C.ink }}>
+          <Icon name={i.value === value ? "checkmark-circle" : "ellipse-outline"} size={17} color={i.value === value ? C.teal : C.muted} />
+          <Text style={{ color: i.value === value ? C.teal : C.ink, fontSize: 14, lineHeight: 20, fontWeight: i.value === value ? "600" : "400", flexShrink: 1 }}>
             {i.label}
           </Text>
         </Pressable>
       ))}
     </View>
   );
+}
+export function PresetField({ label, value, presets, onChange, multiline = true }: {
+  label: string;
+  value: string;
+  presets: TextPreset[];
+  onChange: (value: string) => void;
+  multiline?: boolean;
+}) {
+  const [custom, setCustom] = useState(() => !!value && selectedPreset(value, presets) === null);
+  return <View style={[s.card, { padding: 16, gap: 8 }]}>
+    <Text style={s.label}>{label}</Text>
+    <Text style={s.muted}>选一个即可，也可以按自己的需要修改。</Text>
+    <Chips items={[{ value: "", label: "不指定" }, ...presets]} value={value}
+      onChange={next => { onChange(next); setCustom(false); }} />
+    {value && !custom ? <Text style={s.muted}>{value}</Text> : null}
+    <View style={{ alignSelf: "flex-start" }}>
+      <Button title={custom ? "收起输入" : "自定义"} secondary compact icon="create-outline" onPress={() => setCustom(v => !v)} />
+    </View>
+    {custom ? <Field label={`${label} · 自定义`} value={value} onChangeText={onChange} multiline={multiline} /> : null}
+  </View>;
 }
 export function ResourceState({
   resource,
@@ -134,6 +166,7 @@ export type InputSpec = {
   required?: boolean;
   number?: boolean;
   options?: { value: string; label: string }[];
+  presets?: TextPreset[];
 };
 // Keep one KeyboardProvider at the app root. Multiple providers overwrite the
 // native Modal's dismissal listener and leave the main keyboard callback suspended.
@@ -188,12 +221,15 @@ export function Editor({
       <Page>
         <Heading
           title={title}
-          right={<Button title="取消" secondary onPress={onClose} />}
+          right={<Button title="取消" compact secondary onPress={onClose} />}
         />
         <View style={{ gap: 18 }}>
           {beforeFields?.(values, patch => setValues(current => ({ ...current, ...patch })))}
           {fields.map((f) =>
-            f.options ? (
+            f.presets ? (
+              <PresetField key={f.key} label={f.label} presets={f.presets} value={values[f.key]}
+                multiline={f.multiline} onChange={v => setValues(x => ({ ...x, [f.key]: v }))} />
+            ) : f.options ? (
               <View key={f.key}>
                 <Text style={s.label}>{f.label}</Text>
                 <Chips
@@ -249,18 +285,17 @@ export function Actions({ children }: { children: React.ReactNode }) {
 export function SmallAction({
   title,
   onPress,
+  icon,
+  disabled = false,
 }: {
   title: string;
   onPress: () => void;
+  icon?: IconName;
+  disabled?: boolean;
 }) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={{ padding: 10 }}
-    >
-      <Text style={s.link}>{title}</Text>
-    </Pressable>
+    <Button title={title} onPress={onPress} compact secondary icon={icon}
+      disabled={disabled} danger={title.startsWith("删除") || title.startsWith("移除")} />
   );
 }
 // Markdown stays native Text: headings, lists, code and quotations keep selection.
@@ -286,7 +321,7 @@ export function Prose({ text, streaming = false }: { text: unknown; streaming?: 
   );
 }
 export function Refresh({ onPress }: { onPress: () => void }) {
-  return <SmallAction title="刷新" onPress={onPress} />;
+  return <SmallAction title="刷新" icon="refresh-outline" onPress={onPress} />;
 }
 export function AccountNote() {
   const { user } = useAuth();

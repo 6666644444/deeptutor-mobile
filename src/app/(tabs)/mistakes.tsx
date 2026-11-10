@@ -8,6 +8,7 @@ import { Pressable, RefreshControl, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import { useResource } from "../../lib/resources";
 import { Question } from "../../lib/client";
+import { Chips } from "../../features/common";
 import {
   C,
   Button,
@@ -79,33 +80,11 @@ export default function Mistakes() {
             style={{ flex: 1, padding: 14, color: C.ink, fontSize: 15 }}
           />
         </View>
-        <View style={{ flexDirection: "row", gap: 10, marginVertical: 18 }}>
-          {[
-            ["all", "全部错题"],
-            ["todo", "待回顾"],
-            ["star", "重点收藏"],
-          ].map(([key, label]) => (
-            <Pressable
-              key={key}
-              onPress={() => setFilter(key)}
-              style={{
-                borderRadius: 12,
-                paddingHorizontal: 15,
-                paddingVertical: 11,
-                backgroundColor: filter === key ? C.teal : C.white,
-              }}
-            >
-              <Text
-                style={{
-                  color: filter === key ? C.white : C.muted,
-                  fontWeight: "600",
-                }}
-              >
-                {label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <Chips value={filter} onChange={setFilter} items={[
+          { value: "all", label: "全部错题" },
+          { value: "todo", label: "待回顾" },
+          { value: "star", label: "重点收藏" },
+        ]} />
         {q.error ? <Failure message={q.error} retry={q.reload} /> : null}
         {pending || (q.loading && !q.data) ? <Loading /> : null}
         {!pending && !q.loading && !q.error && !items.length ? (

@@ -4,6 +4,7 @@ import { useResource } from "../lib/resources";
 import { useAuth } from "../lib/auth";
 import { useComposerDraft } from "../lib/use-composer-draft";
 import { mergeChatOptions } from "../lib/learning-options";
+import { explanationPresets } from "../lib/study-presets";
 import type {
   Capability,
   KnowledgeBase,
@@ -14,6 +15,7 @@ import {
   Actions,
   Chips,
   FormModal,
+  PresetField,
   ResourceState,
   ask,
   feature,
@@ -112,10 +114,12 @@ export function CapabilityOptions({
         <Heading
           title="这次怎么学"
           right={
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <Button title="取消" secondary onPress={onClose} />
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              <Button title="取消" compact secondary onPress={onClose} />
               <Button
                 title="完成"
+                compact
+                icon="checkmark-outline"
                 disabled={!canSave}
                 onPress={() => {
                   onChange(draft);
@@ -135,6 +139,7 @@ export function CapabilityOptions({
             label: personaLabels[p.name] || p.name,
           }))}
         />
+        <Text style={s.muted}>{draft.persona === "teacher" ? "拆解知识点，一步一步理解。" : draft.persona === "peer" ? "一起思考、互相提问，像学习伙伴一样交流。" : "围绕问题查找线索、深入分析。"}</Text>
         {!personas.loading &&
         !personas.error &&
         !personas.data?.personas.length ? (
@@ -188,6 +193,9 @@ export function CapabilityOptions({
                 DeepTutor 解析。
               </Text>
             ) : null}
+            <Text style={s.label}>出题数量</Text>
+            <Chips items={[3, 5, 10].map(n => ({ value: String(n), label: `${n} 道` }))}
+              value={String(draft.config.num_questions || 3)} onChange={v => setDraft(d => ({ ...d, config: { ...d.config, num_questions: Number(v), max_questions: Number(v) } }))} />
             <Field
               label="出题数量（1–50）"
               keyboardType="numeric"
@@ -204,6 +212,7 @@ export function CapabilityOptions({
               }
             />
             {choice("difficulty", "难度", [
+              ["auto", "自动选择"],
               ["easy", "基础"],
               ["medium", "适中"],
               ["hard", "挑战"],
@@ -251,10 +260,11 @@ export function CapabilityOptions({
                   ["image", "图片"],
                 ])
               : null}
-            <Field
+            <PresetField
               label="风格与讲解要求"
+              presets={explanationPresets}
               value={String(draft.config.style_hint || "")}
-              onChangeText={(v) => cfg("style_hint", v)}
+              onChange={(v) => cfg("style_hint", v)}
             />
             {choice("enable_visual_review", "检查生成画面", [
               ["false", "关闭"],
@@ -263,6 +273,10 @@ export function CapabilityOptions({
           </>
         ) : null}
         {draft.capability === "audio_overview" ? (
+          <View style={{ gap: 10 }}>
+          <Text style={s.label}>导读时长</Text>
+          <Chips items={[3, 5, 10, 15].map(n => ({ value: String(n), label: `${n} 分钟` }))}
+            value={String(draft.config.target_minutes || 5)} onChange={v => cfg("target_minutes", Number(v))} />
           <Field
             label="时长（1–15 分钟）"
             keyboardType="numeric"
@@ -271,6 +285,7 @@ export function CapabilityOptions({
               cfg("target_minutes", Math.min(15, Math.max(1, Number(v) || 1)))
             }
           />
+          </View>
         ) : null}
         <Section title="参考知识库" />
         <Text style={s.muted}>可选择多份教材作为提问依据。</Text>

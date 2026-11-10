@@ -183,7 +183,7 @@ export function NativeBlocks({
               />
             ) : null}
             {onEdit ? (
-              <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 <SmallAction
                   title={`编辑${blockLabels[type] || "内容"}`}
                   onPress={() => onEdit(b)}

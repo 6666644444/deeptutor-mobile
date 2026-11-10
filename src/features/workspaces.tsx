@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { useAuth } from "../lib/auth";
 import { useResource } from "../lib/resources";
 import { Button, C, Heading, Page, Row, Section } from "../ui";
+import { explanationPresets } from "../lib/study-presets";
 import {
   Editor,
   Refresh,
@@ -79,7 +80,7 @@ export function Workspaces() {
                 })
               }
             />
-            <View style={{ flexDirection: "row" }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
               <SmallAction title="编辑" onPress={() => setEdit(w)} />
               <SmallAction
                 title={w.archived ? "恢复" : "归档"}
@@ -115,6 +116,7 @@ export function Workspaces() {
             {
               key: "instructions",
               label: "学习要求与偏好",
+              presets: explanationPresets,
               value: edit === "new" ? "" : edit.instructions,
               multiline: true,
             },

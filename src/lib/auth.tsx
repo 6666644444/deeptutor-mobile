@@ -34,9 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearTemporaryFiles();
     void manager.start();
     const retry = () => {
-      const s = manager.snapshot;
-      if (AppState.currentState === "active" && !s.booting && s.bootError && s.config)
-        void manager.connect(s.config, false);
+      if (AppState.currentState === "active") void manager.retryConnection();
     };
     const interval = setInterval(retry, 10000);
     const subscription = AppState.addEventListener("change", state => { if (state === "active") retry(); });

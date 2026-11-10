@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
 import { request } from 'node:http';
+import { explanationPresets } from '../src/lib/study-presets.ts';
 
 test('published mock serves the actual list/upload/PDF contracts and isolates account, service and workspace', { timeout: 15000 }, async t => {
   const base = 20000 + Math.floor(Math.random() * 20000);
@@ -27,11 +28,13 @@ test('published mock serves the actual list/upload/PDF contracts and isolates ac
   assert.equal(await handshake({ Authorization: `Bearer ${token}` }), 401);
   assert.equal(await handshake({ Cookie: `dt_token=${token}` }), 101);
   const attachmentBytes = Buffer.from('synthetic-attachment '.repeat(5000));
+  const learningOptions = { capability: 'math_animator', persona: 'peer', knowledge_bases: [],
+    config: { quality: 'medium', style_hint: explanationPresets[0].value, enable_visual_review: false } };
   const sessionId = await new Promise((resolve, reject) => {
     const req = request(origin + '/ws', { headers: { Cookie: `dt_token=${token}`, Upgrade: 'websocket', Connection: 'Upgrade', 'Sec-WebSocket-Version': '13', 'Sec-WebSocket-Key': 'dGhlIHNhbXBsZSBub25jZQ==' } });
     req.on('error', reject);
     req.on('upgrade', (_res, socket) => {
-      const payload = Buffer.from(JSON.stringify({ type: 'start_turn', content: 'attachment persistence fixture', attachments: [{ type: 'file', filename: 'fixture.txt', mime_type: 'text/plain', base64: attachmentBytes.toString('base64') }] }));
+      const payload = Buffer.from(JSON.stringify({ type: 'start_turn', content: 'attachment persistence fixture', ...learningOptions, attachments: [{ type: 'file', filename: 'fixture.txt', mime_type: 'text/plain', base64: attachmentBytes.toString('base64') }] }));
       const header = Buffer.alloc(10); header[0] = 0x81; header[1] = 127; header.writeBigUInt64BE(BigInt(payload.length), 2);
       let buffer = Buffer.alloc(0);
       socket.on('error', reject);
@@ -51,6 +54,10 @@ test('published mock serves the actual list/upload/PDF contracts and isolates ac
   const headers = { Authorization: `Bearer ${token}` };
   const read = async (path, extra = {}) => (await fetch(origin + path, { headers: { ...headers, ...extra } })).json();
   const session = await read(`/api/sessions/${sessionId}`);
+  assert.deepEqual(session.preferences, learningOptions);
+  const title = '用于验证窄屏仍能完整显示的一个很长的学习对话标题';
+  assert.equal((await fetch(origin + `/api/sessions/${sessionId}`, { method: 'PATCH', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ title }) })).status, 200);
+  assert.equal((await read(`/api/sessions/${sessionId}`)).title, title);
   const stored = session.messages[0].attachments[0];
   assert.equal(stored.base64, undefined); assert.ok(stored.url.startsWith('/files/attachments/'));
   assert.deepEqual(Buffer.from(await (await fetch(origin + stored.url, { headers })).arrayBuffer()), attachmentBytes);

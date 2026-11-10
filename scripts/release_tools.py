@@ -8,8 +8,11 @@ import zipfile
 from dev_tools import ROOT
 
 
-def public_environment():
-    env = {k: v for k, v in os.environ.items() if not k.startswith('EXPO_PUBLIC_')}
+def public_environment(base=None):
+    env = {k: v for k, v in (os.environ if base is None else base).items()
+           if not k.startswith('EXPO_PUBLIC_')}
+    for key in ('EXPO_UPDATES_FINGERPRINT_OVERRIDE', 'EXPO_UPDATES_WORKFLOW_OVERRIDE'):
+        env.pop(key, None)
     env.update(NODE_ENV='production', EXPO_NO_DOTENV='1', EXPO_NO_TELEMETRY='1',
                EXPO_PUBLIC_DEFAULT_SERVER='')
     return env
@@ -17,6 +20,23 @@ def public_environment():
 
 def version():
     return json.loads((ROOT / 'package.json').read_text())['version']
+
+
+def android_runtime(archive):
+    with zipfile.ZipFile(archive) as bundle:
+        try:
+            value = bundle.read('assets/fingerprint').decode('ascii').strip()
+        except (KeyError, UnicodeDecodeError) as error:
+            raise ValueError('APK has no valid native fingerprint') from error
+    if not re.fullmatch(r'[a-f0-9]{40,64}', value):
+        raise ValueError('APK has no valid native fingerprint')
+    return value
+
+
+def verify_android_runtime(archive, expected):
+    if not re.fullmatch(r'[a-f0-9]{40,64}', expected) or android_runtime(archive) != expected:
+        raise ValueError('APK runtime differs from the completed native build inputs; do not override it')
+    return expected
 
 
 def audit_archive(archive):

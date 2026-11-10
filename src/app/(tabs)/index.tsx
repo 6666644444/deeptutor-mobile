@@ -53,7 +53,7 @@ export default function Home() {
             : "有不懂的就问一问，\n把每一个小问题都慢慢弄清楚。"}
         </Text>
         <Button
-          title={stats.data?.unresolved ? "去复习一道题" : "问一问 DeepTutor"}
+          title={stats.data?.unresolved ? "去复习一道题" : "开始提问"}
           secondary
           icon="arrow-forward"
           onPress={() =>
@@ -91,7 +91,7 @@ export default function Home() {
       </View>
       <Section
         title="我的积累"
-        action="全部功能 →"
+        action="全部功能"
         onPress={() => router.push("/modules")}
       />
       <View style={[s.card, { flexDirection: "row", paddingVertical: 21 }]}>

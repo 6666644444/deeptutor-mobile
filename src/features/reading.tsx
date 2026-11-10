@@ -689,7 +689,7 @@ function Reader({ id, workspace }: { id: string; workspace: string }) {
                   />
                   <Prose text={n.quote} />
                   <Prose text={n.note} />
-                  <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                     <SmallAction
                       title="讲解这段"
                       onPress={() => question(n.quote, n.locator)}

@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 import shutil
 from dev_tools import ROOT, android_environment, require_dependencies, require_java, run
-from release_tools import audit_archive, public_environment, receipt, version
+from release_tools import android_runtime, audit_archive, public_environment, receipt, verify_android_runtime, version
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--output-dir', type=Path, required=True)
@@ -14,8 +14,7 @@ parser.add_argument('--arch', choices=['arm64-v8a', 'x86_64'], default='arm64-v8
 args = parser.parse_args()
 require_dependencies()
 env, _ = android_environment()
-env = {k: v for k, v in env.items() if not k.startswith('EXPO_PUBLIC_')}
-env.update(public_environment())
+env = public_environment(env)
 require_java(env)
 signing = Path(env.get('DTM_SIGNING_PROPERTIES', ''))
 if not signing.is_file():
@@ -28,11 +27,28 @@ env['DTM_SIGNING_PROPERTIES'] = str(signing.resolve())
 run(['node', 'scripts/source-check.mjs'], env)
 run(['node', 'node_modules/expo/bin/cli', 'prebuild', '--platform', 'android', '--no-install'], env)
 gradle_memory = env.get('DTM_GRADLE_JVM_ARGS')
-run(['gradlew.bat' if os.name == 'nt' else './gradlew', ':app:assembleRelease',
-     f'-PreactNativeArchitectures={args.arch}',
-     *([f'-Dorg.gradle.jvmargs={gradle_memory}'] if gradle_memory else []),
-     '--console=plain', '--quiet'], env, cwd=ROOT / 'android')
+gradle = 'gradlew.bat' if os.name == 'nt' else './gradlew'
+gradle_options = [f'-PreactNativeArchitectures={args.arch}',
+                  *([f'-Dorg.gradle.jvmargs={gradle_memory}'] if gradle_memory else []),
+                  '--console=plain', '--quiet']
+run([gradle, ':app:assembleRelease', *gradle_options], env, cwd=ROOT / 'android')
 apk = ROOT / 'android/app/build/outputs/apk/release/app-release.apk'
+# Kotlin compiler session files can exist while the initial build calculates
+# its fingerprint, then disappear when Gradle exits. Reuse Expo's calculator
+# after compilation; never inject or rewrite a runtime value in the package.
+def completed_runtime():
+    return run(['node', '-e',
+                "require('expo/fingerprint').createFingerprintAsync(process.cwd(), "
+                "{platforms:['android']}).then(x=>console.log(x.hash))"], env, True)
+
+
+expected_runtime = completed_runtime()
+if android_runtime(apk) != expected_runtime:
+    print('Native fingerprint changed after compilation; regenerating update resources.')
+    run([gradle, ':app:createReleaseUpdatesResources', '--rerun', *gradle_options], env, cwd=ROOT / 'android')
+    run([gradle, ':app:assembleRelease', *gradle_options], env, cwd=ROOT / 'android')
+    expected_runtime = completed_runtime()
+verify_android_runtime(apk, expected_runtime)
 build_tools = sorted((Path(env['ANDROID_HOME']) / 'build-tools').glob('*'),
                      key=lambda p: [int(n) for n in re.findall(r'\d+', p.name)])[-1]
 cert = run([build_tools / ('apksigner.bat' if os.name == 'nt' else 'apksigner'),
@@ -55,4 +71,5 @@ if destination.exists():
 shutil.copy2(apk, destination)
 receipt(destination, platform='android', architecture=args.arch, certificateSha256=certificate,
         standalone=True, defaultServer='', package=re.search(r"name='([^']+)'", badging).group(1),
-        versionCode=int(re.search(r"versionCode='(\d+)'", badging).group(1)))
+        versionCode=int(re.search(r"versionCode='(\d+)'", badging).group(1)),
+        runtimeVersion=expected_runtime, runtimeVerified=True)

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Image,
+  Keyboard,
   Pressable,
   ScrollView,
   Text,
@@ -14,7 +15,7 @@ import {
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import * as DocumentPicker from "expo-document-picker";
 import { File } from "expo-file-system";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { KeyboardAvoidingView, useKeyboardState } from "react-native-keyboard-controller";
 import { useAuth } from "../../lib/auth";
 import {
   Session,
@@ -94,6 +95,7 @@ export default function ChatRoute() {
 }
 function Chat({ id, questionId }: { id: string; questionId?: string }) {
   const { api } = useAuth();
+  const keyboardVisible = useKeyboardState(state => state.isVisible);
   const [threadsOpen, setThreadsOpen] = useState(false);
   const [sourceOpen, setSourceOpen] = useState(false);
   const [editingMessage, setEditingMessage] = useState<Message | null>(null);
@@ -677,12 +679,15 @@ function Chat({ id, questionId }: { id: string; questionId?: string }) {
       >
         <View style={{ paddingHorizontal: 18 }}>
           <Heading
-            title={title.length > 12 ? title.slice(0, 12) + "…" : title}
-            sub={`${personaLabels[options.persona] || options.persona} · ${capabilityLabels[options.capability] || options.capability}`}
+            title={sessionId ? title : "问一问"}
+            compact
+            titleLines={keyboardVisible ? 1 : undefined}
+            sub={keyboardVisible ? undefined : `${personaLabels[options.persona] || options.persona} · ${capabilityLabels[options.capability] || options.capability}`}
             back
             right={
               <Pressable
                 accessibilityLabel="对话菜单"
+                accessibilityRole="button"
                 style={s.iconButton}
                 onPress={() =>
                   Alert.alert("对话操作", "", [
@@ -773,7 +778,7 @@ function Chat({ id, questionId }: { id: string; questionId?: string }) {
                 <Text style={[s.muted, { marginBottom: 7 }]}>
                   {m.role === "user" ? "我" : "DeepTutor"}
                 </Text>
-                {!busy && sessionId && !String(m.id).startsWith("mobile_") ? <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+                {!busy && sessionId && !String(m.id).startsWith("mobile_") ? <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                   <SmallAction title="单独追问" onPress={() => void startThread(m)} />
                   {m.role === "user" && /^\d+$/.test(String(m.id)) ? <SmallAction title="修改后再问" onPress={() => setEditingMessage(m)} /> : null}
                 </View> : null}
@@ -982,28 +987,42 @@ function Chat({ id, questionId }: { id: string; questionId?: string }) {
         <View
           style={{
             padding: 14,
-            paddingBottom: 22,
+            paddingBottom: 14,
+            gap: 10,
             borderTopWidth: 1,
             borderTopColor: C.line,
             backgroundColor: C.white,
           }}
         >
-          {!busy ? (
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 20 }}>
+          {!busy && keyboardVisible ? (
+            <View style={{ alignSelf: "flex-start" }}>
+              <SmallAction title="学习工具" icon="options-outline" onPress={() => Keyboard.dismiss()} />
+            </View>
+          ) : !busy ? (
+            <View style={{ gap: 8 }}>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
               <SmallAction
-                title={`模型：${selectedModel(models, modelChoice)?.model || (modelChoice ? '已选模型（点此检查）' : '默认')} · 切换`}
+                title="切换模型"
+                icon="hardware-chip-outline"
                 onPress={() => setModelOpen(true)}
               />
               <SmallAction
-                title="切换学习方式"
+                title="学习方式"
+                icon="options-outline"
                 onPress={() => setOptionsOpen(true)}
               />
+              </View>
+              <Text style={s.muted}>当前模型：{selectedModel(models, modelChoice)?.model || (modelChoice ? "已选模型，请检查是否可用" : "服务默认")}</Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
               <SmallAction
-                title={picking ? "正在选择…" : "添加附件"}
+                title={picking ? "选择中…" : "文件"}
+                icon="attach-outline"
+                disabled={picking}
                 onPress={() => void chooseDocument()}
               />
-              <SmallAction title="拍照" onPress={() => void choosePhoto(true)} />
-              <SmallAction title="相册" onPress={() => void choosePhoto(false)} />
+              <SmallAction title="拍照" icon="camera-outline" onPress={() => void choosePhoto(true)} />
+              <SmallAction title="相册" icon="images-outline" onPress={() => void choosePhoto(false)} />
+              </View>
             </View>
           ) : null}
           {modelOpen && <ModelPicker value={modelChoice} onChange={setModelChoice} onClose={() => setModelOpen(false)} />}
@@ -1035,9 +1054,11 @@ function Chat({ id, questionId }: { id: string; questionId?: string }) {
                 source={{ uri: photo.uri }}
                 style={{ width: 52, height: 52, borderRadius: 9 }}
               />
-              <Text style={s.muted}>照片已就绪，点击发送后开始识别</Text>
+              <Text style={[s.muted, { flex: 1 }]}>照片已就绪，点击发送后开始识别</Text>
               <Pressable
                 accessibilityLabel="移除照片"
+                accessibilityRole="button"
+                style={s.iconButton}
                 onPress={() => setPhoto(undefined)}
               >
                 <Icon name="close-circle-outline" />
@@ -1052,12 +1073,10 @@ function Chat({ id, questionId }: { id: string; questionId?: string }) {
                 marginBottom: 10,
               }}
             >
-              <Text style={s.muted}>
+              <Text style={[s.muted, { flex: 1 }]}>
                 {stopping ? "正在停止，请稍候…" : status}
               </Text>
-              <Pressable disabled={stopping} onPress={stopTurn}>
-                <Text style={s.link}>{stopping ? "停止中" : "停止"}</Text>
-              </Pressable>
+              <SmallAction title={stopping ? "停止中" : "停止"} icon="stop-circle-outline" disabled={stopping} onPress={stopTurn} />
             </View>
           )}
           <View

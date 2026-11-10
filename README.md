@@ -6,15 +6,11 @@ DeepTutor 的非官方 Android / iOS 客户端，支持拍照提问、资料阅�
 
 ## 下载与安装
 
-当前版本：[0.3.2](https://github.com/TinyPandaGame/deeptutor-mobile/releases/tag/v0.3.2)。
-
-本版修复 iOS/iPadOS 27 启动即退出的问题。旧 iOS 包须下载新工程重新构建、签名和安装，不能通过热更新修复。
-
-版本编号：自身修复递增 Z，适配官方新版递增 Y 并将 Z 归零，详见[版本规则](docs/versioning.md)。
+Android：[0.3.3](https://github.com/TinyPandaGame/deeptutor-mobile/releases/tag/v0.3.3)，优化学习选项、按钮和键盘布局。iOS 工程仍为 [0.3.2](https://github.com/TinyPandaGame/deeptutor-mobile/releases/tag/v0.3.2)。
 
 | 平台 | 下载 | 安装方式 |
 | --- | --- | --- |
-| Android | [APK（arm64）](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.2/deeptutor-mobile-0.3.2-arm64-v8a.apk) | 下载后直接安装 |
+| Android | [APK（arm64）](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.3/deeptutor-mobile-0.3.3-arm64-v8a.apk) | 下载后直接安装，可覆盖旧版 |
 | iOS | [Xcode 工程 ZIP](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.2/deeptutor-mobile-0.3.2-ios-project.zip) | 在 Mac 上自行构建和签名，暂无可直接安装的 IPA |
 
 iOS 环境准备和构建步骤见[构建指南](docs/build.md)。
@@ -47,10 +43,10 @@ iOS 环境准备和构建步骤见[构建指南](docs/build.md)。
 
 ## 当前状态
 
-Android 与 iOS 模拟器已通过构建和主要交互验证，iOS 真机尚未验收。详细范围、热更新条件及已知问题见[验证记录](docs/validation.md)、[更新说明](docs/updates.md)和[安全审计](docs/security-review.md)。
+Android 0.3.3 已通过模拟器覆盖安装和主要交互验证。本轮未构建或验收 iOS，iOS 真机仍未验收。详细范围、热更新条件及已知问题见[验证记录](docs/validation.md)、[更新说明](docs/updates.md)和[安全审计](docs/security-review.md)。
 
 ## 开发与开源
 
-[开发指南](docs/build.md) · [验收工具](docs/verification-tools.md) · [兼容范围](docs/compatibility.md) · [问题反馈](https://github.com/TinyPandaGame/deeptutor-mobile/issues)
+[开发指南](docs/build.md) · [界面与预设设计](docs/mobile-ui.md) · [验收工具](docs/verification-tools.md) · [兼容范围](docs/compatibility.md) · [版本规则](docs/versioning.md) · [问题反馈](https://github.com/TinyPandaGame/deeptutor-mobile/issues)
 
 采用 [Apache-2.0](LICENSE)，基于 [HKUDS/DeepTutor](https://github.com/HKUDS/DeepTutor) 服务接口开发。上游归属及第三方许可见 [NOTICE](NOTICE) 和 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md)。

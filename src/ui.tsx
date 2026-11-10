@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -6,6 +6,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
   type TextInputProps,
   type ColorValue,
 } from "react-native";
@@ -21,13 +22,14 @@ export const C = {
   bg: "#F6F8F7",
   white: "#FFFFFF",
   ink: "#183B39",
-  muted: "#6D827E",
-  teal: "#087F78",
+  muted: "#586E69",
+  teal: "#08776F",
   pale: "#E5F3EE",
   line: "#E2EAE6",
   peach: "#FFF0E3",
   orange: "#B56529",
   danger: "#B14B45",
+  dangerPale: "#FFF0EE",
 };
 export type IconName = React.ComponentProps<typeof Ionicons>["name"];
 export const Icon = ({
@@ -46,6 +48,8 @@ export function Button({
   disabled = false,
   icon,
   busy = false,
+  compact = false,
+  danger = false,
 }: {
   title: string;
   onPress: () => void;
@@ -53,26 +57,32 @@ export function Button({
   disabled?: boolean;
   icon?: IconName;
   busy?: boolean;
+  compact?: boolean;
+  danger?: boolean;
 }) {
+  const foreground = danger ? C.danger : secondary ? C.teal : C.white;
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={title}
+      accessibilityState={{ disabled: disabled || busy, busy }}
       disabled={disabled || busy}
       onPress={onPress}
       style={({ pressed }) => [
         s.button,
         secondary && s.secondary,
+        compact && s.compactButton,
+        danger && { backgroundColor: C.dangerPale, borderColor: "#EFCAC4" },
         (disabled || busy) && { opacity: 0.55 },
-        pressed && { opacity: 0.75 },
+        pressed && { opacity: 0.78, transform: [{ scale: 0.98 }] },
       ]}
     >
       {busy ? (
-        <ActivityIndicator color={secondary ? C.teal : C.white} />
+        <ActivityIndicator color={foreground} />
       ) : icon ? (
-        <Icon name={icon} size={20} color={secondary ? C.teal : C.white} />
+        <Icon name={icon} size={compact ? 18 : 20} color={foreground} />
       ) : null}
-      <Text style={[s.buttonText, secondary && { color: C.teal }]}>
+      <Text style={[s.buttonText, { color: foreground }, compact && { fontSize: 14, lineHeight: 20 }]}>
         {title}
       </Text>
     </Pressable>
@@ -114,14 +124,26 @@ export function Heading({
   sub,
   back = false,
   right,
+  compact = false,
+  titleLines,
 }: {
   title: string;
   sub?: string;
   back?: boolean;
   right?: React.ReactNode;
+  compact?: boolean;
+  titleLines?: number;
 }) {
+  const { width, fontScale } = useWindowDimensions();
+  const [measuredWidth, setMeasuredWidth] = useState(0);
+  const [actionsWidth, setActionsWidth] = useState(0);
+  const availableWidth = measuredWidth || width - 44;
+  // Form actions move below the title on a phone. Chat's single menu icon can
+  // stay beside it; the full title wraps instead of being cut to 12 characters.
+  const titleSpace = availableWidth - actionsWidth - (back ? 64 : 10);
+  const stackActions = !!right && !compact && titleSpace < Math.min(220, title.length * 25) * fontScale;
   return (
-    <View style={s.heading}>
+    <View onLayout={e => setMeasuredWidth(e.nativeEvent.layout.width)} style={[s.heading, compact && { paddingTop: 10, paddingBottom: 12 }, stackActions && { flexWrap: "wrap" }]}>
       {back && (
         <Pressable
           accessibilityRole="button"
@@ -134,11 +156,13 @@ export function Heading({
           <Icon name="chevron-back" />
         </Pressable>
       )}
-      <View style={{ flex: 1 }}>
-        <Text style={s.h1}>{title}</Text>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text accessibilityRole="header" numberOfLines={titleLines} style={[s.h1, compact && { fontSize: 21, lineHeight: 29 }]}>{title}</Text>
         {sub && <Text style={s.sub}>{sub}</Text>}
       </View>
-      {right}
+      {right ? <View style={stackActions ? s.headingActions : { flexShrink: 0, maxWidth: "100%" }}>
+        <View onLayout={e => setActionsWidth(e.nativeEvent.layout.width)} style={{ alignSelf: "flex-end", maxWidth: "100%" }}>{right}</View>
+      </View> : null}
     </View>
   );
 }
@@ -153,15 +177,9 @@ export function Section({
 }) {
   return (
     <View style={s.section}>
-      <Text style={s.h2}>{title}</Text>
+      <Text style={[s.h2, { flex: 1, minWidth: 0 }]}>{title}</Text>
       {action && (
-        <Pressable
-          accessibilityRole="button"
-          onPress={onPress}
-          style={{ padding: 8 }}
-        >
-          <Text style={s.link}>{action}</Text>
-        </Pressable>
+        <Button title={action} compact secondary onPress={() => onPress?.()} />
       )}
     </View>
   );
@@ -197,9 +215,7 @@ export function Failure({
   return (
     <View style={s.notice}>
       <Text style={{ color: C.danger, lineHeight: 22 }}>{message}</Text>
-      <Pressable onPress={retry} style={{ paddingVertical: 10 }}>
-        <Text style={s.link}>重新尝试</Text>
-      </Pressable>
+      <View style={{ alignSelf: "flex-start", marginTop: 12 }}><Button title="重新尝试" icon="refresh-outline" compact secondary onPress={retry} /></View>
     </View>
   );
 }
@@ -214,6 +230,7 @@ export function Loading() {
   );
 }
 export function Field({ label, ...props }: TextInputProps & { label: string }) {
+  const [focused, setFocused] = useState(false);
   return (
     <View style={{ gap: 8 }}>
       <Text style={s.label}>{label}</Text>
@@ -221,10 +238,13 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
         accessibilityLabel={label}
         placeholderTextColor="#98A6A3"
         {...props}
+        onFocus={e => { setFocused(true); props.onFocus?.(e); }}
+        onBlur={e => { setFocused(false); props.onBlur?.(e); }}
         style={[
           s.input,
           props.multiline && { minHeight: 110, textAlignVertical: "top" },
           props.style,
+          focused && { borderColor: C.teal, backgroundColor: "#FAFFFC" },
         ]}
       />
     </View>
@@ -253,7 +273,7 @@ export function Row({
       <View style={s.smallDisc}>
         <Icon name={icon} />
       </View>
-      <View style={{ flex: 1, gap: 5 }}>
+      <View style={{ flex: 1, minWidth: 0, gap: 5 }}>
         <Text style={s.rowTitle} numberOfLines={2}>
           {title}
         </Text>
@@ -263,7 +283,7 @@ export function Row({
           </Text>
         )}
       </View>
-      {suffix && <Text style={s.muted}>{suffix}</Text>}
+      {suffix && <Text style={[s.tag, { maxWidth: "28%", flexShrink: 1 }]}>{suffix}</Text>}
       <Icon name="chevron-forward" size={17} color={C.muted} />
     </Pressable>
   );
@@ -274,7 +294,7 @@ export function openFeature(path: string, _title?: string) {
 export const s = StyleSheet.create({
   page: { flex: 1, backgroundColor: C.bg },
   pageBody: {
-    paddingHorizontal: 22,
+    paddingHorizontal: 20,
     paddingBottom: 30,
     width: "100%",
     maxWidth: 760,
@@ -287,6 +307,7 @@ export const s = StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 24,
   },
+  headingActions: { width: "100%", alignItems: "flex-end", paddingTop: 4 },
   h1: { fontSize: 25, lineHeight: 34, fontWeight: "700", color: C.ink },
   h2: { fontSize: 18, fontWeight: "700", color: C.ink },
   sub: { marginTop: 5, fontSize: 13, color: C.muted, lineHeight: 20 },
@@ -296,6 +317,7 @@ export const s = StyleSheet.create({
     alignItems: "center",
     marginTop: 26,
     marginBottom: 12,
+    gap: 12,
   },
   link: { color: C.teal, fontWeight: "600", fontSize: 14 },
   muted: { color: C.muted, fontSize: 13, lineHeight: 20 },
@@ -318,9 +340,13 @@ export const s = StyleSheet.create({
     justifyContent: "center",
     flexDirection: "row",
     gap: 8,
+    maxWidth: "100%",
+    borderWidth: 1,
+    borderColor: "transparent",
   },
-  buttonText: { fontSize: 16, fontWeight: "600", color: C.white },
-  secondary: { backgroundColor: C.pale },
+  buttonText: { fontSize: 16, lineHeight: 23, fontWeight: "600", color: C.white, flexShrink: 1, textAlign: "center" },
+  secondary: { backgroundColor: C.pale, borderColor: "#CDE4DB" },
+  compactButton: { minHeight: 44, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 14 },
   label: { fontSize: 14, color: C.ink, fontWeight: "600" },
   input: {
     borderRadius: 14,
@@ -368,6 +394,9 @@ export const s = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: C.white,
+    borderWidth: 1,
+    borderColor: C.line,
+    flexShrink: 0,
   },
   empty: {
     paddingVertical: 38,

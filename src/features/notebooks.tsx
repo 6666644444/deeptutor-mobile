@@ -103,7 +103,7 @@ export function Notebooks({ id = "" }: { id?: string }) {
               <Prose text={record.summary} />
               <Prose text={record.user_query} />
               <Prose text={record.output} />
-              <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                 <SmallAction
                   title="修改标题与摘要"
                   onPress={() => setEditor(record)}

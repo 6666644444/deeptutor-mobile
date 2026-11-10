@@ -28,7 +28,7 @@ function fixturePdf() {
 }
 for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort + 1, '单用户演示', false], [basePort + 2, '服务乙', true]]) {
   const tokens = new Map(), materials = new Map(), sessions = new Map(), personal = new Map();
-  const passwords = new Map(), displays = new Map(), attachments = new Map();
+  const passwords = new Map(), displays = new Map(), attachments = new Map(), learners = new Map();
   let messageSequence = 0;
   const role = values['user-models'] ? 'user' : 'admin';
   const userFor = req => {
@@ -60,7 +60,11 @@ for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort +
       return res.end(item.bytes);
     }
     if (path === '/api/auth/profile') return json({ id: user, username: user, role, can_change_password: enabled, must_change_password: false });
-    if (path === '/api/auth/profile/learner-profile') return json({ detail: 'Learner profile required' }, 403);
+    if (path === '/api/auth/profile/learner-profile') {
+      if (role !== 'user') return json({ detail: 'Learner profile required' }, 403);
+      if (req.method === 'PUT') learners.set(user, JSON.parse(body.toString()));
+      return json({ learner_profile: learners.get(user) || { grade_level: '小学四年级', explanation_style: '保留原有的自定义讲解要求。' } });
+    }
     if (path === '/api/auth/profile/password' && req.method === 'PUT') {
       const data = JSON.parse(body.toString());
       if (data.current_password !== (passwords.get(user) || 'demo-pass')) return json({ detail: 'Current password is incorrect' }, 400);
@@ -78,6 +82,14 @@ for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort +
       const data = JSON.parse(body.toString() || '{}');
       Object.assign(session.preferences, data);
       return json({ session, selected_branches: data.selected_branches });
+    }
+    const renameMatch = /^\/api\/sessions\/([^/]+)$/.exec(path);
+    if (renameMatch && req.method === 'PATCH') {
+      const session = sessions.get(renameMatch[1]);
+      if (!session || session.owner !== owner) return json({}, 404);
+      const data = JSON.parse(body.toString());
+      if (typeof data.title !== 'string' || !data.title.trim()) return json({}, 422);
+      session.title = data.title; return json(session);
     }
     if (path === '/api/documents/flashcards/export' || path === '/api/documents/fixture-note/flashcards/export') { res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('#separator:tab\n#html:true\n3×4等于几？\t12\n'); }
     if (path === '/api/documents/fixture-note') return json({ id: 'fixture-note', title: '闪卡导出演示', content: '', version: 1, blocks: [{ id: 'cards', type: 'learning', props: { kind: 'flashcards', data: JSON.stringify({ cards: [{ front: '3×4等于几？', back: '12' }] }) } }] });
@@ -115,8 +127,8 @@ for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort +
     if (req.method !== 'GET' && !(req.method === 'POST' && path === '/api/reading/materials') && !(req.method === 'PUT' && path === '/api/reading/materials/fixture-pdf/position'))
       return json({ detail: 'This write is not implemented by the local fixture' }, 404);
     const document = { material_id: 'fixture-pdf', title: `${label} / ${user} · PDF演示`, filename: 'fixture.pdf', render_mode: 'pdf', has_raw_view: true, unit_count: 2, unit: 'page', revision: 1, status: 'ready' };
-    if (path === '/api/capabilities/registered') return json({ capabilities: ['chat','deep_question','video_lesson','math_animator'].map(id => ({ id, available: true })) });
-    if (path === '/api/personas') return json({ personas: [{ name: 'teacher' }, { name: 'peer' }] });
+    if (path === '/api/capabilities/registered') return json({ capabilities: ['chat','ask_questions','deep_solve','deep_question','deep_research','immersive_reading','mastery_path','audio_overview','video_lesson','math_animator','visualize'].map(id => ({ id, available: true })) });
+    if (path === '/api/personas') return json({ personas: [{ name: 'teacher' }, { name: 'peer' }, { name: 'research-assistant' }] });
     if (path === '/api/reading/library/materials') return json({ materials: [document] });
     if (path === '/api/reading/workspaces') return json({ workspaces: [] });
     if (path === '/api/reading/supported-formats') return json({ extensions: ['.pdf', '.docx', '.txt'] });
@@ -188,7 +200,8 @@ for (const [port, label, enabled] of [[basePort, '服务甲', true], [basePort +
         if (/排版验收|LayoutAcceptance/.test(String(value.content))) answer = '这是合成排版验收，不是模型识别。\n### **一起算一算**\n先算 $26 + 17 = 43$。\n- **第一步**：先加十位。\n- 第二步：再加个位。\n> 分数也可以读清楚：$\\frac{1}{2}$。\n| 内容 | 数量 |\n| --- | --- |\n| 苹果 | 3 |\n| 梨 | 4 |\n【题目】26+17=?\n【我的作答】43\n【不确定之处】这是测试用固定文本，请校对。';
         const parent = Object.hasOwn(value,'parent_message_id') ? value.parent_message_id : previous?.messages.at(-1)?.id || null;
         const userId = ++messageSequence, assistantId = ++messageSequence;
-        const preferences = { ...previous?.preferences, llm_selection: value.llm_selection };
+        const preferences = { ...previous?.preferences, llm_selection: value.llm_selection,
+          ...Object.fromEntries(['capability', 'persona', 'config', 'knowledge_bases'].filter(k => value[k] !== undefined).map(k => [k, value[k]])) };
         if (value.selection_tutor_context) Object.assign(preferences, { parent_session_id: value.selection_tutor_context.parent_session_id, session_kind: 'selection_tutor', tutor_source_message_id: value.selection_tutor_context.quoted_message_id });
         const message = { id: assistantId, parent_message_id: userId, role: 'assistant', content: answer, attachments: [{ type: 'file', filename: '演示资料.pdf', mime_type: 'application/pdf', url: '/api/reading/materials/fixture-pdf/raw', generated: true }] };
         sessions.set(id, { id, owner, title: '虚拟测试对话', preferences, messages: [...(previous?.messages || []), { id: userId, parent_message_id: parent, role: 'user', content: value.content, attachments: storedAttachments }, message] });

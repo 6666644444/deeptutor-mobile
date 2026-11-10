@@ -76,7 +76,7 @@ export function Partners({ id = "" }: { id?: string }) {
         <>
           <ResourceState resource={detail} />
           <Text style={s.muted}>{p?.description}</Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             <SmallAction
               title="历史会话"
               onPress={() => setChoose((v) => !v)}

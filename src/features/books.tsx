@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import { useAuth } from "../lib/auth";
 import { useResource, useJobPolling } from "../lib/resources";
 import { Button, C, Heading, Page, Row, Section, s } from "../ui";
+import { gradePresets } from "../lib/study-presets";
 import {
   Actions,
   Editor,
@@ -225,7 +226,7 @@ export function Books({ id = "", page = "" }: { id?: string; page?: string }) {
                         ))}
                         {b.status === "spine_ready" && b.can_edit ? (
                           <View
-                            style={{ flexDirection: "row", flexWrap: "wrap" }}
+                            style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}
                           >
                             <SmallAction
                               title="修改章节"
@@ -385,7 +386,7 @@ export function Books({ id = "", page = "" }: { id?: string; page?: string }) {
                     <Text style={{ color: C.danger }}>{block.error}</Text>
                   ) : null}
                   {b.can_edit ? (
-                    <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+                    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                       <SmallAction
                         title="重新生成"
                         onPress={() =>
@@ -660,6 +661,7 @@ export function Books({ id = "", page = "" }: { id?: string; page?: string }) {
                     {
                       key: "target_level",
                       label: "适合年级",
+                      presets: gradePresets,
                       value: string(b?.proposal?.target_level),
                     },
                   ]

@@ -87,6 +87,7 @@ export function Writing({ id = "" }: { id?: string }) {
       />
       {!id ? (
         <>
+          <Actions>
           <Button title="新建文章" onPress={() => setEdit(true)} />
           <ExportFile path="/api/documents/flashcards/export" filename="我的闪卡-Anki.txt" mime="text/plain" title="导出全部闪卡到 Anki" />
           <Button
@@ -120,6 +121,7 @@ export function Writing({ id = "" }: { id?: string }) {
               })
             }
           />
+          </Actions>
           {list.data?.documents.map((d) => (
             <Row
               key={d.id}

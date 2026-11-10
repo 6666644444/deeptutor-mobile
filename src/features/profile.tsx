@@ -4,6 +4,7 @@ import { useAuth } from "../lib/auth";
 import { useResource } from "../lib/resources";
 import { Button, C, Field, Heading, Page, Section, s } from "../ui";
 import { Editor, ResourceState, useAction } from "./common";
+import { explanationPresets, gradePresets, readingPresets } from "../lib/study-presets";
 
 export type ProfileInfo = { id: string; username: string; role: string; can_change_password?: boolean; must_change_password?: boolean };
 type LearnerProfile = { age?: number; grade_level?: string; curriculum?: string; language?: string; reading_level?: string; explanation_style?: string };
@@ -53,10 +54,10 @@ export function Profile() {
     </>}
     {editing && learner.data ? <Editor title="我的学习情况" onClose={() => setEditing(false)} fields={[
       { key: "age", label: "年龄", number: true, value: String(learner.data.learner_profile?.age || "") },
-      { key: "grade_level", label: "年级", value: learner.data.learner_profile?.grade_level },
+      { key: "grade_level", label: "年级", presets: gradePresets, value: learner.data.learner_profile?.grade_level },
       { key: "curriculum", label: "所用教材", value: learner.data.learner_profile?.curriculum },
-      { key: "reading_level", label: "阅读情况", value: learner.data.learner_profile?.reading_level },
-      { key: "explanation_style", label: "希望怎样讲解", multiline: true, value: learner.data.learner_profile?.explanation_style },
+      { key: "reading_level", label: "阅读情况", presets: readingPresets, value: learner.data.learner_profile?.reading_level },
+      { key: "explanation_style", label: "希望怎样讲解", presets: explanationPresets, multiline: true, value: learner.data.learner_profile?.explanation_style },
     ]} onSave={async values => {
       const age = values.age.trim() ? Number(values.age) : undefined;
       if (age !== undefined && (!Number.isInteger(age) || age < 1 || age > 120)) throw new Error("请填写正确的年龄。");
