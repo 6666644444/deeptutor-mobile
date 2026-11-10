@@ -51,6 +51,6 @@ Android 与 iOS 模拟器已通过构建和主要交互验证，iOS 真机尚未
 
 ## 开发与开源
 
-[开发指南](docs/build.md) · [兼容范围](docs/compatibility.md) · [问题反馈](https://github.com/TinyPandaGame/deeptutor-mobile/issues)
+[开发指南](docs/build.md) · [验收工具](docs/verification-tools.md) · [兼容范围](docs/compatibility.md) · [问题反馈](https://github.com/TinyPandaGame/deeptutor-mobile/issues)
 
 采用 [Apache-2.0](LICENSE)，基于 [HKUDS/DeepTutor](https://github.com/HKUDS/DeepTutor) 服务接口开发。上游归属及第三方许可见 [NOTICE](NOTICE) 和 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES.md)。
