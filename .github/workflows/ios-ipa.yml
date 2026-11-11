@@ -17,6 +17,16 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Fetch iOS project
+        run: |
+          curl -fsSL -o /tmp/ios-project.zip \
+            https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.2/deeptutor-mobile-0.3.2-ios-project.zip
+          echo "7872574bcf63390e732efce891f98eb4a8153c5649fb5fa3f788b24c9ce6fa4a  /tmp/ios-project.zip" | shasum -a 256 -c -
+          unzip -q /tmp/ios-project.zip -d /tmp/iosproj
+          ls /tmp/iosproj
+          cp -R /tmp/iosproj/deeptutor-mobile/ios ./ios
+          ls -la ./ios | head -20
+
       - name: Install JS deps
         run: npm ci --no-audit --no-fund
 
