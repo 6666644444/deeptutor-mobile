@@ -2,7 +2,7 @@
 
 ## 使用发行附件
 
-`0.3.1` 提供 [Android APK](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.1/deeptutor-mobile-0.3.1-arm64-v8a.apk) 与 [iOS 工程 ZIP](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.1/deeptutor-mobile-0.3.1-ios-project.zip)。附件校验值、签名和实际测试结果见[该版本 Release](https://github.com/TinyPandaGame/deeptutor-mobile/releases/tag/v0.3.1)。
+Android 使用 [0.3.3 APK](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.3/deeptutor-mobile-0.3.3-arm64-v8a.apk)，iOS 工程保持 [0.3.2 ZIP](https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.2/deeptutor-mobile-0.3.2-ios-project.zip)。附件校验值、签名和实际测试范围分别见 [Android 0.3.3 Release](https://github.com/TinyPandaGame/deeptutor-mobile/releases/tag/v0.3.3) 和 [iOS 0.3.2 Release](https://github.com/TinyPandaGame/deeptutor-mobile/releases/tag/v0.3.2)。
 
 ### Android APK
 
