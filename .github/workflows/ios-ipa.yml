@@ -1,0 +1,54 @@
+name: ios-ipa
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install JS deps
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Pods
+        run: |
+          cd ios
+          pod install --repo-update
+
+      - name: Build (unsigned)
+        run: |
+          cd ios
+          xcodebuild \
+            -workspace DeepTutor.xcworkspace \
+            -scheme DeepTutor \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            clean build
+
+      - name: Package ipa
+        run: |
+          mkdir -p out/Payload
+          cp -R ios/build/Build/Products/Release-iphoneos/DeepTutor.app out/Payload/
+          cd out
+          zip -qry ../DeepTutor-unsigned.ipa Payload
+          ls -lh ../DeepTutor-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DeepTutor-unsigned-ipa
+          path: DeepTutor-unsigned.ipa
+          if-no-files-found: error
