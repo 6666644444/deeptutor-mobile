@@ -53,14 +53,21 @@ jobs:
       - name: Build log summary
         if: always()
         run: |
+          set +e
+          echo "xcodebuild: $(xcodebuild -version | tr '\n' ' ')"
+          echo "xcode-select: $(xcode-select -p)"
           {
-            echo "### xcodebuild errors"
+            echo "### ERRORS"
             echo '```'
-            grep -nE "(error:|error |FAILED|BUILD FAILED|The following build commands failed|Code ?Sign)" /tmp/build.log | tail -n 60 || true
+            grep -n ': error: ' /tmp/build.log | head -n 12 | cut -c1-220 || true
             echo '```'
-            echo "### xcodebuild tail"
+            echo "### FAILED CMDS"
             echo '```'
-            tail -n 80 /tmp/build.log || true
+            grep -A6 'The following build commands failed' /tmp/build.log | cut -c1-220 || true
+            echo '```'
+            echo "### TAIL40"
+            echo '```'
+            tail -n 40 /tmp/build.log | cut -c1-220 || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
