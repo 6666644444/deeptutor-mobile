@@ -35,6 +35,14 @@ jobs:
           cd ios
           pod install --repo-update
 
+      - name: Resolve SwiftPM packages
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          cd ios
+          xcodebuild -resolvePackageDependencies \
+            -workspace DeepTutor.xcworkspace \
+            -scheme DeepTutor 2>&1 | tee /tmp/spm.log | tail -n 40
       - name: Build (unsigned)
         run: |
           set -o pipefail
@@ -60,6 +68,14 @@ jobs:
             echo "### ERRORS"
             echo '```'
             grep -n ': error: ' /tmp/build.log | head -n 12 | cut -c1-220 || true
+            echo '```'
+            echo "### SPM"
+            echo '```'
+            grep -n -B3 -A18 'Could not resolve package dependencies' /tmp/build.log | cut -c1-240 | head -n 40 || true
+            echo '```'
+            echo "### SPM LOG"
+            echo '```'
+            tail -n 25 /tmp/spm.log 2>/dev/null | cut -c1-240 || true
             echo '```'
             echo "### FAILED CMDS"
             echo '```'
