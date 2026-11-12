@@ -14,26 +14,34 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
-
-      - name: Fetch iOS project
-        run: |
-          curl -fsSL -o /tmp/ios-project.zip \
-            https://github.com/TinyPandaGame/deeptutor-mobile/releases/download/v0.3.2/deeptutor-mobile-0.3.2-ios-project.zip
-          echo "7872574bcf63390e732efce891f98eb4a8153c5649fb5fa3f788b24c9ce6fa4a  /tmp/ios-project.zip" | shasum -a 256 -c -
-          unzip -q /tmp/ios-project.zip -d /tmp/iosproj
-          ls /tmp/iosproj
-          cp -R /tmp/iosproj/deeptutor-mobile/ios ./ios
-          ls -la ./ios | head -20
 
       - name: Install JS deps
         run: npm ci --no-audit --no-fund
+
+      - name: Generate iOS project
+        # Continuous Native Generation (see AGENTS.md): ios/ is generated from
+        # app.config.js + config plugins, never hand-maintained and never
+        # reused from an older release. The previous workflow fetched the
+        # v0.3.2 Xcode project ZIP from the upstream release and built it
+        # against current (0.3.3) JS; that stale native project is a
+        # needless mismatch risk. Generate fresh, exactly like
+        # scripts/export-ios-project.py does.
+        run: |
+          npx expo prebuild --platform ios --no-install
+          ls ios
+          # prebuild creates the .xcodeproj and Podfile; the .xcworkspace
+          # is only created by `pod install` in the next step, so check
+          # for the prebuild outputs here, not the workspace.
+          test -d ios/DeepTutor.xcodeproj
+          test -f ios/Podfile
 
       - name: Install Pods
         run: |
           cd ios
           pod install --repo-update
+          test -d DeepTutor.xcworkspace
 
       - name: Resolve SwiftPM packages
         continue-on-error: true
