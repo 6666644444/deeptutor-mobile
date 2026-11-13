@@ -7,10 +7,27 @@ on:
 
 jobs:
   build:
-    runs-on: macos-15-intel
+    runs-on: macos-26
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        # Expo SDK 57's expo-modules-jsi declares swift-tools-version 6.2,
+        # but the old macos-15-intel runner only has Xcode 16.4 (Swift 6.1),
+        # so the build died with "package 'apple' is using Swift tools
+        # version 6.2.0 but the installed version is 6.1.0" (exit 65).
+        # macos-26 ships Xcode 26 (Swift 6.2+); select the newest
+        # Xcode 26 present and fail fast if there is no real toolchain.
+        run: |
+          ls -d /Applications/Xcode_*.app
+          XCODE=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -Vr | head -n 1)
+          test -n "$XCODE" || { echo "No Xcode 26 found"; exit 1; }
+          test -d "$XCODE/Contents/Developer" || { echo "$XCODE has no toolchain"; exit 1; }
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+          swift --version
 
       - uses: actions/setup-node@v4
         with:
